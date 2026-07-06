@@ -4,47 +4,52 @@
 
 @layer base {
   body {
-    background-color: #07090B;
-    color: #C9D4D8;
+    background-color: #0B0B0D;
+    color: #F4F4F3;
     font-family: "Inter", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Wordmark / datos de instrumento */
   .font-brand {
     font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
-    letter-spacing: 0.24em;
+    letter-spacing: 0.22em;
     font-weight: 700;
   }
-  .font-data {
-    font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
-    font-variant-numeric: tabular-nums;
-  }
+  .tnum { font-variant-numeric: tabular-nums; }
 
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: #10171C; }
-  ::-webkit-scrollbar-thumb { background: #24313A; border-radius: 9999px; }
-  ::-webkit-scrollbar-thumb:hover { background: #23E7C4; }
+  ::-webkit-scrollbar { width: 7px; height: 7px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #26252A; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #E39A34; }
 }
 
 @layer components {
   .card {
-    @apply bg-surface-card border border-surface-border rounded-xl;
+    @apply bg-ink-card border border-ink-line rounded-2xl;
   }
-  .btn-primary {
-    @apply bg-pulse-400 hover:bg-pulse-500 text-surface font-semibold px-4 py-2 rounded-lg
-           transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed;
+  .label {
+    @apply text-[11px] uppercase tracking-[0.14em] text-txt-mute font-medium;
+  }
+  .pill {
+    @apply inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-semibold tnum;
+  }
+  .pill-pos { @apply text-pos; background: rgba(55, 214, 160, 0.12); }
+  .pill-neg { @apply text-neg; background: rgba(240, 115, 111, 0.12); }
+  .btn-gold {
+    @apply bg-gold-500 hover:bg-gold-400 text-ink font-semibold px-4 py-2.5 rounded-lg
+           transition-colors disabled:opacity-40 disabled:cursor-not-allowed;
   }
   .btn-ghost {
-    @apply text-[#8B949E] hover:text-white hover:bg-surface-hover px-3 py-2 rounded-lg
+    @apply text-txt-soft hover:text-txt hover:bg-ink-hover px-3 py-2 rounded-lg
            transition-colors text-sm font-medium;
   }
   .input {
-    @apply w-full bg-surface border border-surface-muted rounded-lg px-3 py-2.5
-           text-sm text-white placeholder-[#48555C]
-           focus:outline-none focus:border-pulse-400 transition-colors;
+    @apply w-full bg-ink border border-ink-line rounded-lg px-3 py-2.5
+           text-sm text-txt placeholder-txt-mute
+           focus:outline-none focus:border-gold-500 transition-colors;
   }
-  .badge {
-    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
+  .icon-btn {
+    @apply grid place-items-center w-9 h-9 rounded-lg text-txt-soft
+           hover:text-txt hover:bg-ink-hover transition-colors;
   }
 }

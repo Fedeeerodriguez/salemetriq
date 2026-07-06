@@ -4,38 +4,35 @@ export default {
   theme: {
     extend: {
       colors: {
-        // SALEMETRIQ — "Pulse" aqua eléctrico sobre obsidiana, con champán de lujo.
-        pulse: {
-          50:  "#d7fdf5",
-          100: "#a6f7e8",
-          200: "#6ff0d6",
-          300: "#3eecc9",
-          400: "#23E7C4", // acento principal
-          500: "#12cfac",
-          600: "#0fa88f",
-          700: "#0d8272",
-          800: "#0b5f55",
-          900: "#083f39",
+        // SALEMETRIQ — dashboard "Marcador": neutros casi-negros + acento ámbar/dorado.
+        ink: {
+          DEFAULT: "#0B0B0D", // fondo app
+          card:    "#151417", // tarjetas
+          raised:  "#1B1A1E", // cajas internas
+          hover:   "#201F24",
+          line:    "#26252A", // bordes
         },
-        champ: {
-          DEFAULT: "#E3C79A", // metal de lujo / KPIs destacados
-          deep:    "#B5945F",
+        gold: {
+          300: "#F6BC5E",
+          400: "#F1AC43",
+          500: "#E39A34", // acento principal
+          600: "#C9862A",
         },
-        surface: {
-          DEFAULT: "#07090B", // obsidiana — fondo base
-          card:    "#10171C", // paneles
-          hover:   "#161F26",
-          border:  "#24313A",
-          muted:   "#1B252B",
+        pos: "#37D6A0", // positivo (verde-teal)
+        neg: "#F0736F", // negativo (coral)
+        txt: {
+          DEFAULT: "#F4F4F3",
+          soft:    "#9A9AA0",
+          mute:    "#6E6E73",
         },
-        // semánticos (separados del acento)
-        up:   "#34E0A8",
-        warn: "#E8B04B",
-        down: "#F0736F",
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
         mono: ["'JetBrains Mono'", "'SFMono-Regular'", "Consolas", "monospace"],
+      },
+      borderRadius: {
+        xl: "0.9rem",
+        "2xl": "1.1rem",
       },
     },
   },

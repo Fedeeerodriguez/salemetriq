@@ -16,7 +16,7 @@ export default function Login() {
     setLoading(true);
     try {
       await login(email, password);
-      navigate("/dashboard", { replace: true });
+      navigate("/overview", { replace: true });
     } catch (err) {
       setError(err.response?.data?.detail || "No se pudo iniciar sesión");
     } finally {
@@ -25,35 +25,33 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface px-4">
+    <div className="min-h-screen flex items-center justify-center bg-ink px-4">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center gap-4 mb-8">
-          <SalemetriqLogo size={52} />
+          <SalemetriqLogo size={48} />
           <div className="text-center">
-            <div className="font-brand text-xl text-[#EAF2F3]">SALEMETRIQ</div>
-            <div className="text-xs text-[#6C7B84] uppercase tracking-[0.24em] mt-1">
-              Sales Telemetry
-            </div>
+            <div className="font-brand text-xl text-txt">SALEMETRIQ</div>
+            <div className="text-[11px] text-txt-mute uppercase tracking-[0.22em] mt-1">Sales Telemetry</div>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="card p-6 flex flex-col gap-4">
           <div>
-            <label className="text-xs text-[#6C7B84] uppercase tracking-wider">Email</label>
+            <label className="label">Email</label>
             <input
-              type="email" className="input mt-1" value={email}
+              type="email" className="input mt-1.5" value={email}
               onChange={(e) => setEmail(e.target.value)} autoFocus required
             />
           </div>
           <div>
-            <label className="text-xs text-[#6C7B84] uppercase tracking-wider">Contraseña</label>
+            <label className="label">Contraseña</label>
             <input
-              type="password" className="input mt-1" value={password}
+              type="password" className="input mt-1.5" value={password}
               onChange={(e) => setPassword(e.target.value)} required
             />
           </div>
-          {error && <div className="text-sm text-down">{error}</div>}
-          <button type="submit" className="btn-primary" disabled={loading}>
+          {error && <div className="text-[13.5px] text-neg">{error}</div>}
+          <button type="submit" className="btn-gold" disabled={loading}>
             {loading ? "Entrando…" : "Entrar"}
           </button>
         </form>
