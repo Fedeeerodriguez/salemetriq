@@ -17,8 +17,10 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: str = ""
 
     # ── Anthropic (Analista IA) ───────────────────────────────────────────────
+    # Para análisis de llamadas conviene Sonnet (mejor criterio); Haiku es la
+    # opción barata (claude-haiku-4-5). Se puede cambiar por env sin tocar código.
     ANTHROPIC_API_KEY: str = ""
-    ANTHROPIC_MODEL: str = "claude-haiku-4-5-20251001"
+    ANTHROPIC_MODEL: str = "claude-sonnet-5"
 
     # ── OpenAI (embeddings del vector store de transcripts) ───────────────────
     OPENAI_API_KEY: str = ""
