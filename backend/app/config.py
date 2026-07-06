@@ -1,0 +1,52 @@
+"""Configuración cargada desde variables de entorno (.env)."""
+import logging
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
+
+# Fallback solo para no romper el arranque en dev — definir JWT_SECRET en el entorno.
+_DEFAULT_JWT_SECRET = "salemetriq_jwt_secret_change_in_production_2026"
+
+
+class Settings(BaseSettings):
+    # ── Supabase ──────────────────────────────────────────────────────────────
+    SUPABASE_URL: str = "https://placeholder.supabase.co"
+    SUPABASE_ANON_KEY: str = ""
+    # service_role key — saltea RLS, solo el backend la conoce.
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
+
+    # ── Anthropic (Analista IA) ───────────────────────────────────────────────
+    ANTHROPIC_API_KEY: str = ""
+    ANTHROPIC_MODEL: str = "claude-haiku-4-5-20251001"
+
+    # ── OpenAI (embeddings del vector store de transcripts) ───────────────────
+    OPENAI_API_KEY: str = ""
+    OPENAI_EMBED_MODEL: str = "text-embedding-3-small"
+    OPENAI_CHAT_MODEL: str = "gpt-4.1-mini"
+
+    # ── Ingesta externa ───────────────────────────────────────────────────────
+    INGEST_INTERNAL_KEY: str = ""
+
+    # ── Auth (JWT) ────────────────────────────────────────────────────────────
+    JWT_SECRET: str = _DEFAULT_JWT_SECRET
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRATION_HOURS: int = 8
+
+    # ── CORS ──────────────────────────────────────────────────────────────────
+    CORS_ORIGINS: str = "http://localhost:5180,http://localhost:5173"
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+
+settings = Settings()
+
+if settings.JWT_SECRET == _DEFAULT_JWT_SECRET:
+    logger.warning(
+        "SEGURIDAD: JWT_SECRET no está definido en el entorno — se usa el secret por "
+        "defecto. Configurá JWT_SECRET antes de ir a producción."
+    )
