@@ -1,18 +1,28 @@
 import { NavLink } from "react-router-dom";
-import { LayoutGrid, Phone, Users, Headphones, Mic, FileText } from "lucide-react";
+import { LayoutGrid, Phone, Users, Headphones, Mic, FileText, UserCog, Building2, Network } from "lucide-react";
 import SalemetriqLogo from "../SalemetriqLogo";
 import TelemetryPulse from "../TelemetryPulse";
+import { isSuperadmin, isAdmin } from "../../utils/auth";
 
-const NAV = [
+const DASHBOARD = [
   { to: "/overview", label: "Overview", icon: LayoutGrid },
   { to: "/calls", label: "Calls", icon: Phone },
   { to: "/closers", label: "Closers", icon: Users },
   { to: "/setters", label: "Setters", icon: Headphones },
+  { to: "/equipo", label: "Equipo", icon: Network },
   { to: "/call-analysis", label: "Call Analysis", icon: Mic },
   { to: "/script-generator", label: "Script Generator", icon: FileText },
 ];
 
 export default function Sidebar() {
+  // Superadmin (plataforma) solo ve "Clientes"; el resto ve el dashboard del workspace.
+  const superadmin = isSuperadmin();
+  const NAV = superadmin
+    ? [{ to: "/clientes", label: "Clientes", icon: Building2 }]
+    : isAdmin()
+      ? [...DASHBOARD, { to: "/usuarios", label: "Usuarios", icon: UserCog }]
+      : DASHBOARD;
+
   return (
     <aside className="w-[248px] shrink-0 glass-panel border-r border-white/[0.06] flex flex-col">
       <div className="px-6 h-[68px] flex items-center border-b border-ink-line">

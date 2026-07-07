@@ -10,9 +10,12 @@ router = APIRouter(prefix="/api/setters", tags=["setters"])
 @router.get("")
 def listar_setters(user: dict = Depends(get_current_user)) -> list[dict]:
     sb = get_supabase_admin()
+    team = user.get("team_id")
+    if not team:
+        return []
     res = (
         sb.table("users").select("id, nombre, email, rol")
-        .eq("rol", "setter").eq("is_demo", bool(user.get("is_demo"))).execute()
+        .eq("rol", "setter").eq("team_id", team).execute()
     )
     return res.data or []
 
@@ -24,7 +27,7 @@ def resumenes_de_setter(setter_id: str, user: dict = Depends(get_current_user)) 
         sb.table("setter_summaries")
         .select("id, fecha, tipo, texto, audio_url, lead_qualification, agendado")
         .eq("setter_id", setter_id)
-        .eq("is_demo", bool(user.get("is_demo")))
+        .eq("team_id", user.get("team_id"))
         .order("fecha", desc=True)
         .execute()
     )

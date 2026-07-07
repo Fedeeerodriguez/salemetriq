@@ -14,10 +14,13 @@ router = APIRouter(prefix="/api/calls", tags=["calls"])
 @router.get("")
 def listar_calls(user: dict = Depends(get_current_user)) -> list[dict]:
     sb = get_supabase_admin()
+    team = user.get("team_id")
+    if not team:
+        return []
     calls = (
         sb.table("calls")
         .select("id, fecha, duracion_seg, outcome, deal_value, closer_id, lead_id")
-        .eq("is_demo", bool(user.get("is_demo")))
+        .eq("team_id", team)
         .order("fecha", desc=True)
         .limit(200)
         .execute()

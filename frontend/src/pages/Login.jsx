@@ -15,8 +15,8 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      await login(email, password);
-      navigate("/overview", { replace: true });
+      const user = await login(email, password);
+      navigate(user?.is_superadmin ? "/clientes" : "/overview", { replace: true });
     } catch (err) {
       setError(err.response?.data?.detail || "No se pudo iniciar sesión");
     } finally {

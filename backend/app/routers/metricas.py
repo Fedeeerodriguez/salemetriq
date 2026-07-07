@@ -14,10 +14,13 @@ router = APIRouter(prefix="/api/metricas", tags=["metricas"])
 @router.get("/overview")
 def overview(user: dict = Depends(get_current_user)) -> dict:
     sb = get_supabase_admin()
-    demo = bool(user.get("is_demo"))
+    team = user.get("team_id")
+    if not team:
+        return {"close_rate": 0.0, "revenue": 0, "total_calls": 0, "cerradas": 0,
+                "presentaron": 0, "set_rate": 0.0, "total_summaries": 0, "agendados": 0}
 
-    calls = sb.table("calls").select("id, outcome, deal_value").eq("is_demo", demo).execute().data or []
-    summaries = sb.table("setter_summaries").select("id, agendado").eq("is_demo", demo).execute().data or []
+    calls = sb.table("calls").select("id, outcome, deal_value").eq("team_id", team).execute().data or []
+    summaries = sb.table("setter_summaries").select("id, agendado").eq("team_id", team).execute().data or []
 
     total_calls = len(calls)
     cerradas = sum(1 for c in calls if c.get("outcome") == "cerro")

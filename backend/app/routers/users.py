@@ -3,7 +3,7 @@
 `GET /api/users/{id}/profile` arma la vista de un closer o un setter:
 - closer → métricas de llamadas, score IA promedio, dimensiones, sentiment, timeline
 - setter → set rate, calidad de leads, timeline de resúmenes
-Respeta el aislamiento demo (solo cruza filas con el mismo is_demo del usuario).
+Respeta el aislamiento multi-tenant (solo cruza filas del team_id del usuario).
 """
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -25,11 +25,13 @@ def _lead_names(sb, lead_ids: list[str]) -> dict:
 @router.get("/{user_id}/profile")
 def profile(user_id: str, user: dict = Depends(get_current_user)) -> dict:
     sb = get_supabase_admin()
-    demo = bool(user.get("is_demo"))
+    team = user.get("team_id")
+    if not team:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
     u = (
         sb.table("users").select("id, nombre, email, rol")
-        .eq("id", user_id).eq("is_demo", demo).limit(1).execute().data
+        .eq("id", user_id).eq("team_id", team).limit(1).execute().data
     )
     u = u[0] if u else None
     if not u:
@@ -41,7 +43,7 @@ def profile(user_id: str, user: dict = Depends(get_current_user)) -> dict:
     if u["rol"] == "closer":
         calls = (
             sb.table("calls").select("id, fecha, outcome, deal_value, lead_id")
-            .eq("closer_id", user_id).eq("is_demo", demo).order("fecha", desc=True).execute().data or []
+            .eq("closer_id", user_id).eq("team_id", team).order("fecha", desc=True).execute().data or []
         )
         total = len(calls)
         cerradas = sum(1 for c in calls if c.get("outcome") == "cerro")
@@ -97,7 +99,7 @@ def profile(user_id: str, user: dict = Depends(get_current_user)) -> dict:
         summ = (
             sb.table("setter_summaries")
             .select("id, fecha, tipo, texto, lead_qualification, agendado, lead_id")
-            .eq("setter_id", user_id).eq("is_demo", demo).order("fecha", desc=True).execute().data or []
+            .eq("setter_id", user_id).eq("team_id", team).order("fecha", desc=True).execute().data or []
         )
         total = len(summ)
         agendados = sum(1 for s in summ if s.get("agendado"))

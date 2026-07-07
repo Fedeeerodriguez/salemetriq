@@ -65,7 +65,11 @@ def get_current_user(token: str | None = Depends(oauth2_scheme)) -> dict:
         raise cred_error
 
     sb = get_supabase_admin()
-    res = sb.table("users").select("id, email, nombre, rol, activo, is_demo").eq("id", user_id).limit(1).execute()
+    res = (
+        sb.table("users")
+        .select("id, email, nombre, rol, activo, is_demo, team_id, is_superadmin")
+        .eq("id", user_id).limit(1).execute()
+    )
     user = res.data[0] if res.data else None
     if not user or not user.get("activo", True):
         raise cred_error
@@ -81,3 +85,17 @@ def require_roles(*roles: str):
         return user
 
     return _check
+
+
+def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    """Admin dueño/gestor de un workspace (no superadmin de plataforma)."""
+    if user.get("rol") != "admin" or not user.get("team_id"):
+        raise HTTPException(status_code=403, detail="Solo administradores del workspace")
+    return user
+
+
+def require_superadmin(user: dict = Depends(get_current_user)) -> dict:
+    """Superadmin de la plataforma (nosotros): da de alta clientes/workspaces."""
+    if not user.get("is_superadmin"):
+        raise HTTPException(status_code=403, detail="Solo superadmin de plataforma")
+    return user

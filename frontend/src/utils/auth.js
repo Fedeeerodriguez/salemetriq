@@ -40,3 +40,16 @@ export function hasRole(...roles) {
   const u = getUser();
   return u && roles.includes(u.rol);
 }
+
+export function isSuperadmin() {
+  return Boolean(getUser()?.is_superadmin);
+}
+
+export function isAdmin() {
+  const u = getUser();
+  return Boolean(u && u.rol === "admin" && u.team_id);
+}
+
+export function getWorkspace() {
+  return getUser()?.workspace || null;
+}

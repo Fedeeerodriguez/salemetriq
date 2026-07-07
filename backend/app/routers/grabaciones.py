@@ -52,6 +52,7 @@ def _persistir_analisis(sb, rec: dict) -> dict:
         "resumen": data.get("resumen"),
         "raw": data,
         "is_demo": bool(rec.get("is_demo")),
+        "team_id": rec.get("team_id"),
     }
     inserted = sb.table("analysis_runs").insert(run_payload).execute().data
     sb.table("call_recordings").update({"status": "analizado"}).eq("id", rec_id).execute()
@@ -65,7 +66,7 @@ def _auto_analizar(rec_id: str) -> None:
         return
     sb = get_supabase_admin()
     rec = (
-        sb.table("call_recordings").select("id, title, transcript, is_demo")
+        sb.table("call_recordings").select("id, title, transcript, is_demo, team_id")
         .eq("id", rec_id).limit(1).execute().data
     )
     rec = rec[0] if rec else None
@@ -116,10 +117,13 @@ def ingest(
 @router.get("")
 def listar(user: dict = Depends(get_current_user)) -> list[dict]:
     sb = get_supabase_admin()
+    team = user.get("team_id")
+    if not team:
+        return []
     recs = (
         sb.table("call_recordings")
         .select("id, provider, title, recorded_at, duration_seg, status, participants")
-        .eq("is_demo", bool(user.get("is_demo")))
+        .eq("team_id", team)
         .order("recorded_at", desc=True)
         .limit(200)
         .execute()
@@ -158,7 +162,7 @@ def detalle(rec_id: str, user: dict = Depends(get_current_user)) -> dict:
     sb = get_supabase_admin()
     res = (
         sb.table("call_recordings").select("*")
-        .eq("id", rec_id).eq("is_demo", bool(user.get("is_demo"))).limit(1).execute()
+        .eq("id", rec_id).eq("team_id", user.get("team_id")).limit(1).execute()
     )
     rec = res.data[0] if res.data else None
     if not rec:
@@ -188,8 +192,8 @@ class AnalyzeResponse(BaseModel):
 def analizar(rec_id: str, user: dict = Depends(get_current_user)) -> AnalyzeResponse:
     sb = get_supabase_admin()
     res = (
-        sb.table("call_recordings").select("id, title, transcript, is_demo")
-        .eq("id", rec_id).eq("is_demo", bool(user.get("is_demo"))).limit(1).execute()
+        sb.table("call_recordings").select("id, title, transcript, is_demo, team_id")
+        .eq("id", rec_id).eq("team_id", user.get("team_id")).limit(1).execute()
     )
     rec = res.data[0] if res.data else None
     if not rec:
