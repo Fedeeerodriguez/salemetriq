@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .routers import auth as auth_router
-from .routers import closers, setters, ingesta, metricas, grabaciones
+from .routers import closers, setters, ingesta, metricas, grabaciones, calls, users
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,6 +38,8 @@ app.include_router(setters.router)
 app.include_router(ingesta.router)
 app.include_router(metricas.router)
 app.include_router(grabaciones.router)
+app.include_router(calls.router)
+app.include_router(users.router)
 
 
 @app.get("/")

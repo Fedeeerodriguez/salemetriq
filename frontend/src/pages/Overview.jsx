@@ -1,18 +1,16 @@
+import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer, YAxis } from "recharts";
+import api from "../utils/api";
 
 /*
- * Overview — dashboard principal (visual-first).
- * Los valores son datos de diseño/demo; se reemplazan por /api/metricas/overview
- * y consultas reales en la fase de datos.
+ * Overview — dashboard principal.
+ * KPIs y pipeline salen de /api/metricas/overview (datos reales).
+ * El chart de tendencia, la actividad y el foco son visuales de diseño por ahora.
  */
 
-const KPIS = [
-  { label: "Show rate", value: "67%", delta: "+4%", up: true },
-  { label: "Close rate", value: "35%", delta: "-2%", up: false },
-  { label: "Llamadas agendadas", value: "142", delta: "+11", up: true },
-  { label: "Facturación cerrada", value: "$48.2k", delta: "+9%", up: true },
-];
+const money = (n) => "$" + Number(n || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 });
+const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
 
 const CHART = [
   { s: "S1", v: 22 }, { s: "S2", v: 25 }, { s: "S3", v: 23 }, { s: "S4", v: 30 },
@@ -20,19 +18,21 @@ const CHART = [
 ];
 
 const ACTIVIDAD = [
-  { dot: "#37D6A0", nombre: "Fede R.", texto: "cerró con Marina S. — $2.400", cuando: "Hace 24 min" },
-  { dot: "#6E6E73", nombre: "Marina G.", texto: "cargó transcript de call — Lucas D.", cuando: "Hace 1 h" },
-  { dot: "#F0736F", nombre: "Tomás L.", texto: "— no show, Nico F.", cuando: "Hace 2 h" },
-  { dot: "#37D6A0", nombre: "Nico F.", texto: "cerró con Paula V. — $3.100", cuando: "Hace 3 h" },
+  { dot: "#34D399", nombre: "Fede R.", texto: "cerró con Marina S. — $2.400", cuando: "Hace 24 min" },
+  { dot: "#6B6B80", nombre: "Marina G.", texto: "cargó transcript de call — Lucas D.", cuando: "Hace 1 h" },
+  { dot: "#FB7185", nombre: "Tomás L.", texto: "— no show, Nico F.", cuando: "Hace 2 h" },
+  { dot: "#34D399", nombre: "Nico F.", texto: "cerró con Paula V. — $3.100", cuando: "Hace 3 h" },
 ];
 
-function Kpi({ label, value, delta, up }) {
+function Kpi({ label, value, delta, up, premium }) {
   return (
     <div className="card p-5">
       <div className="label">{label}</div>
       <div className="flex items-baseline gap-2.5 mt-3.5">
-        <span className="text-[34px] leading-none font-semibold tnum text-txt">{value}</span>
-        <span className={`pill ${up ? "pill-pos" : "pill-neg"}`}>{delta}</span>
+        <span className={`font-display text-[34px] leading-none font-semibold tnum ${premium ? "text-gold-400" : "text-txt"}`}>
+          {value}
+        </span>
+        {delta && <span className={`pill ${up ? "pill-pos" : "pill-neg"}`}>{delta}</span>}
       </div>
     </div>
   );
@@ -42,13 +42,14 @@ function FunnelBox({ titulo, valor, tint }) {
   const styles = {
     neutral: "bg-ink-raised border-ink-line",
     green: "border-pos/25",
-    gold: "border-gold-500/25",
+    gold: "border-gold-400/30",
   }[tint];
-  const bg = { green: "rgba(55,214,160,0.07)", gold: "rgba(227,154,52,0.07)" }[tint];
+  const bg = { green: "rgba(52,211,153,0.07)", gold: "rgba(212,175,122,0.08)" }[tint];
+  const valColor = tint === "gold" ? "text-gold-400" : "text-txt";
   return (
     <div className={`flex-1 rounded-xl border px-5 py-4 ${styles}`} style={bg ? { background: bg } : undefined}>
       <div className="label">{titulo}</div>
-      <div className="text-[28px] font-semibold tnum text-txt mt-2">{valor}</div>
+      <div className={`font-display text-[28px] font-semibold tnum mt-2 ${valColor}`}>{valor}</div>
     </div>
   );
 }
@@ -66,53 +67,70 @@ function Step({ pct, sub }) {
 function LastDot({ points }) {
   if (!points?.length) return null;
   const p = points[points.length - 1];
-  return <circle cx={p.x} cy={p.y} r={4} fill="#F1AC43" stroke="#0B0B0D" strokeWidth={2} />;
+  return <circle cx={p.x} cy={p.y} r={4} fill="#22D3EE" stroke="#0A0A0F" strokeWidth={2} />;
 }
 
 export default function Overview() {
+  const [m, setM] = useState(null);
+
+  useEffect(() => {
+    api.get("/metricas/overview").then((r) => setM(r.data)).catch(() => setM(null));
+  }, []);
+
+  const kpis = [
+    { label: "Close rate", value: m ? `${m.close_rate}%` : "—" },
+    { label: "Facturación cerrada", value: m ? money(m.revenue) : "—", premium: true },
+    { label: "Llamadas", value: m ? String(m.total_calls) : "—" },
+    { label: "Set rate", value: m ? `${m.set_rate}%` : "—" },
+  ];
+
   return (
     <div className="grid grid-cols-1 xl:grid-cols-[1fr_330px] gap-6">
       {/* ── Columna principal ── */}
       <div className="flex flex-col gap-5 min-w-0">
         {/* KPIs */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {KPIS.map((k) => <Kpi key={k.label} {...k} />)}
+          {kpis.map((k) => <Kpi key={k.label} {...k} />)}
         </div>
 
-        {/* Pipeline de la semana */}
+        {/* Pipeline */}
         <div className="card p-6">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-[15px] font-semibold text-txt">Pipeline de la semana</h2>
-            <span className="text-[13px] text-txt-mute">29 jun — 5 jul</span>
+            <h2 className="font-display text-[15px] font-semibold text-txt">Pipeline</h2>
+            <span className="text-[13px] text-txt-mute">Acumulado</span>
           </div>
           <div className="flex items-stretch gap-2">
-            <FunnelBox titulo="Agendadas" valor="142" tint="neutral" />
-            <Step pct="67%" sub="show" />
-            <FunnelBox titulo="Se presentaron" valor="96" tint="green" />
-            <Step pct="35%" sub="cierre" />
-            <FunnelBox titulo="Cerradas" valor="34" tint="gold" />
+            <FunnelBox titulo="Llamadas" valor={m ? String(m.total_calls) : "—"} tint="neutral" />
+            <Step pct={m ? `${pct(m.presentaron, m.total_calls)}%` : "—"} sub="show" />
+            <FunnelBox titulo="Se presentaron" valor={m ? String(m.presentaron) : "—"} tint="green" />
+            <Step pct={m ? `${pct(m.cerradas, m.presentaron)}%` : "—"} sub="cierre" />
+            <FunnelBox titulo="Cerradas" valor={m ? String(m.cerradas) : "—"} tint="gold" />
           </div>
         </div>
 
         {/* Close rate chart */}
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-[15px] font-semibold text-txt">Close rate — últimas 8 semanas</h2>
-            <button className="text-[13px] text-txt-mute hover:text-gold-400 transition-colors">Ver detalle</button>
+            <h2 className="font-display text-[15px] font-semibold text-txt">Close rate — últimas 8 semanas</h2>
+            <button className="text-[13px] text-txt-mute hover:text-iris-400 transition-colors">Ver detalle</button>
           </div>
           <div className="h-[200px] -mx-2">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={CHART} margin={{ top: 8, right: 12, bottom: 0, left: 12 }}>
                 <defs>
-                  <linearGradient id="goldFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#E39A34" stopOpacity={0.28} />
-                    <stop offset="100%" stopColor="#E39A34" stopOpacity={0} />
+                  <linearGradient id="accentStroke" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#7C3AED" />
+                    <stop offset="100%" stopColor="#22D3EE" />
+                  </linearGradient>
+                  <linearGradient id="accentFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#7C3AED" stopOpacity={0.28} />
+                    <stop offset="100%" stopColor="#22D3EE" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <YAxis hide domain={["dataMin - 6", "dataMax + 4"]} />
                 <Area
-                  type="monotone" dataKey="v" stroke="#F1AC43" strokeWidth={2.5}
-                  fill="url(#goldFill)" dot={<LastDot />} activeDot={false} isAnimationActive={false}
+                  type="monotone" dataKey="v" stroke="url(#accentStroke)" strokeWidth={2.5}
+                  fill="url(#accentFill)" dot={<LastDot />} activeDot={false} isAnimationActive={false}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -122,29 +140,26 @@ export default function Overview() {
 
       {/* ── Panel derecho ── */}
       <div className="flex flex-col gap-5">
-        {/* Foco de la semana */}
-        <div
-          className="rounded-2xl border border-gold-500/20 p-5"
-          style={{ background: "linear-gradient(180deg, rgba(227,154,52,0.06), rgba(21,20,23,0.4))" }}
-        >
-          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gold-400">Foco de la semana</div>
-          <h3 className="text-[18px] font-semibold text-txt mt-2">Manejo de objeción de precio</h3>
+        {/* Foco de la semana — recomendación de la IA (pulso violeta→cian) */}
+        <div className="card liquid p-5 ring-1 ring-iris-500/25">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Foco de la semana</div>
+          <h3 className="font-display text-[18px] font-semibold text-txt mt-2">Manejo de objeción de precio</h3>
           <p className="text-[13.5px] text-txt-soft leading-relaxed mt-2">
             En 6 de las últimas 12 calls perdidas, la objeción de precio apareció después del
             minuto 20 sin un manejo claro. Trabajen esto antes de sumar nada más.
           </p>
           <div className="flex items-center gap-3 mt-4">
             <div className="flex-1 h-1.5 rounded-full bg-ink-line overflow-hidden">
-              <div className="h-full rounded-full bg-gold-500" style={{ width: "78%" }} />
+              <div className="h-full rounded-full bg-accent-grad" style={{ width: "78%" }} />
             </div>
-            <span className="text-[13px] font-semibold text-gold-400 tnum">78/100</span>
+            <span className="text-[13px] font-semibold text-iris-400 tnum">78/100</span>
           </div>
-          <button className="btn-gold w-full mt-4 text-[14px]">Ver plan de la semana</button>
+          <button className="btn-primary w-full mt-4 text-[14px]">Ver plan de la semana</button>
         </div>
 
         {/* Actividad reciente */}
         <div className="card p-5">
-          <h3 className="text-[15px] font-semibold text-txt mb-4">Actividad reciente</h3>
+          <h3 className="font-display text-[15px] font-semibold text-txt mb-4">Actividad reciente</h3>
           <div className="flex flex-col gap-4">
             {ACTIVIDAD.map((a, i) => (
               <div key={i} className="flex gap-3">

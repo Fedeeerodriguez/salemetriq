@@ -6,7 +6,7 @@
 """
 import logging
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from ..config import settings
@@ -20,12 +20,77 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/recordings", tags=["grabaciones"])
 
 
+# ── Motor de análisis (reusado por análisis manual y auto-análisis) ──────────
+def _persistir_analisis(sb, rec: dict) -> dict:
+    """Corre el analista IA sobre una grabación y guarda el run. Devuelve el run.
+
+    Propaga is_demo de la grabación al análisis para respetar el aislamiento.
+    Lanza RuntimeError si el modelo/API falla (deja la grabación en 'error').
+    """
+    rec_id = rec["id"]
+    sb.table("call_recordings").update({"status": "analizando"}).eq("id", rec_id).execute()
+    try:
+        data = analizar_transcript(rec.get("transcript") or "", contexto=rec.get("title"))
+    except RuntimeError:
+        sb.table("call_recordings").update({"status": "error"}).eq("id", rec_id).execute()
+        raise
+
+    dims = data.get("dimensiones", {})
+    # Fallback: si el modelo no devolvió score_global, promediar las dimensiones.
+    score = data.get("score_global")
+    if score is None and dims:
+        vals = [v for v in dims.values() if isinstance(v, (int, float))]
+        score = round(sum(vals) / len(vals), 1) if vals else None
+    run_payload = {
+        "target_tipo": "call_recording",
+        "target_id": rec_id,
+        "modelo": settings.ANTHROPIC_MODEL,
+        "score": score,
+        "sentiment": data.get("sentiment"),
+        "objeciones": data.get("objeciones"),
+        "tags": list(dims.keys()) if dims else None,
+        "resumen": data.get("resumen"),
+        "raw": data,
+        "is_demo": bool(rec.get("is_demo")),
+    }
+    inserted = sb.table("analysis_runs").insert(run_payload).execute().data
+    sb.table("call_recordings").update({"status": "analizado"}).eq("id", rec_id).execute()
+    return inserted[0] if inserted else run_payload
+
+
+def _auto_analizar(rec_id: str) -> None:
+    """Tarea de fondo: analiza una grabación recién ingestada, si hay API key."""
+    if not settings.ANTHROPIC_API_KEY:
+        logger.info("Auto-análisis omitido (sin ANTHROPIC_API_KEY): %s", rec_id)
+        return
+    sb = get_supabase_admin()
+    rec = (
+        sb.table("call_recordings").select("id, title, transcript, is_demo")
+        .eq("id", rec_id).limit(1).execute().data
+    )
+    rec = rec[0] if rec else None
+    if not rec or not rec.get("transcript"):
+        return
+    try:
+        _persistir_analisis(sb, rec)
+        logger.info("Auto-análisis OK: %s", rec_id)
+    except Exception as e:  # noqa: BLE001 — no queremos tumbar la ingesta
+        logger.warning("Auto-análisis falló para %s: %s", rec_id, e)
+
+
 # ── Ingesta (webhook de Fathom) ──────────────────────────────────────────────
 @router.post("/ingest/{provider}")
-def ingest(provider: str, payload: dict, x_ingest_key: str | None = Header(default=None)) -> dict:
+def ingest(
+    provider: str,
+    payload: dict,
+    background: BackgroundTasks,
+    x_ingest_key: str | None = Header(default=None),
+) -> dict:
     """Recibe el payload de un proveedor (fathom, …), lo normaliza y hace upsert.
 
-    Protegido con INGEST_INTERNAL_KEY (header X-Ingest-Key) si está configurada.
+    Al terminar la llamada, el closer manda el transcript acá automáticamente y se
+    dispara el análisis IA en segundo plano (busca mejoras). Protegido con
+    INGEST_INTERNAL_KEY (header X-Ingest-Key) si está configurada.
     """
     if settings.INGEST_INTERNAL_KEY and x_ingest_key != settings.INGEST_INTERNAL_KEY:
         raise HTTPException(status_code=401, detail="X-Ingest-Key inválida")
@@ -39,7 +104,12 @@ def ingest(provider: str, payload: dict, x_ingest_key: str | None = Header(defau
     sb = get_supabase_admin()
     res = sb.table("call_recordings").upsert(row, on_conflict="provider,external_id").execute()
     grabacion = res.data[0] if res.data else None
-    return {"ok": True, "id": grabacion.get("id") if grabacion else None}
+
+    # Auto-análisis en segundo plano si la grabación trae transcript.
+    if grabacion and grabacion.get("transcript"):
+        background.add_task(_auto_analizar, grabacion["id"])
+
+    return {"ok": True, "id": grabacion.get("id") if grabacion else None, "auto_analisis": bool(grabacion and grabacion.get("transcript"))}
 
 
 # ── Listado (tarjetas) ───────────────────────────────────────────────────────
@@ -49,6 +119,7 @@ def listar(user: dict = Depends(get_current_user)) -> list[dict]:
     recs = (
         sb.table("call_recordings")
         .select("id, provider, title, recorded_at, duration_seg, status, participants")
+        .eq("is_demo", bool(user.get("is_demo")))
         .order("recorded_at", desc=True)
         .limit(200)
         .execute()
@@ -85,7 +156,10 @@ def listar(user: dict = Depends(get_current_user)) -> list[dict]:
 @router.get("/{rec_id}")
 def detalle(rec_id: str, user: dict = Depends(get_current_user)) -> dict:
     sb = get_supabase_admin()
-    res = sb.table("call_recordings").select("*").eq("id", rec_id).limit(1).execute()
+    res = (
+        sb.table("call_recordings").select("*")
+        .eq("id", rec_id).eq("is_demo", bool(user.get("is_demo"))).limit(1).execute()
+    )
     rec = res.data[0] if res.data else None
     if not rec:
         raise HTTPException(status_code=404, detail="Grabación no encontrada")
@@ -113,32 +187,18 @@ class AnalyzeResponse(BaseModel):
 @router.post("/{rec_id}/analyze", response_model=AnalyzeResponse)
 def analizar(rec_id: str, user: dict = Depends(get_current_user)) -> AnalyzeResponse:
     sb = get_supabase_admin()
-    res = sb.table("call_recordings").select("id, title, transcript").eq("id", rec_id).limit(1).execute()
+    res = (
+        sb.table("call_recordings").select("id, title, transcript, is_demo")
+        .eq("id", rec_id).eq("is_demo", bool(user.get("is_demo"))).limit(1).execute()
+    )
     rec = res.data[0] if res.data else None
     if not rec:
         raise HTTPException(status_code=404, detail="Grabación no encontrada")
     if not rec.get("transcript"):
         raise HTTPException(status_code=400, detail="La grabación no tiene transcript para analizar")
 
-    sb.table("call_recordings").update({"status": "analizando"}).eq("id", rec_id).execute()
     try:
-        data = analizar_transcript(rec["transcript"], contexto=rec.get("title"))
+        run = _persistir_analisis(sb, rec)
     except RuntimeError as e:
-        sb.table("call_recordings").update({"status": "error"}).eq("id", rec_id).execute()
         raise HTTPException(status_code=502, detail=str(e))
-
-    dims = data.get("dimensiones", {})
-    run_payload = {
-        "target_tipo": "call_recording",
-        "target_id": rec_id,
-        "modelo": settings.ANTHROPIC_MODEL,
-        "score": data.get("score_global"),
-        "sentiment": data.get("sentiment"),
-        "objeciones": data.get("objeciones"),
-        "tags": list(dims.keys()) if dims else None,
-        "resumen": data.get("resumen"),
-        "raw": data,
-    }
-    inserted = sb.table("analysis_runs").insert(run_payload).execute().data
-    sb.table("call_recordings").update({"status": "analizado"}).eq("id", rec_id).execute()
-    return AnalyzeResponse(ok=True, analisis=inserted[0] if inserted else run_payload)
+    return AnalyzeResponse(ok=True, analisis=run)

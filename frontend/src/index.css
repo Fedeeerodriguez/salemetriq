@@ -4,10 +4,16 @@
 
 @layer base {
   body {
-    background-color: #0B0B0D;
-    color: #F4F4F3;
+    background-color: #0A0A0F;
+    color: #F5F5F7;
     font-family: "Inter", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
+    /* Glow radial sutil — sensación espacial: pulso violeta arriba, cian abajo */
+    background-image:
+      radial-gradient(1100px 620px at 10% -12%, rgba(124, 58, 237, 0.14), transparent 60%),
+      radial-gradient(760px 520px at 55% 38%, rgba(124, 58, 237, 0.05), transparent 60%),
+      radial-gradient(900px 620px at 105% 112%, rgba(34, 211, 238, 0.09), transparent 55%);
+    background-attachment: fixed;
   }
 
   .font-brand {
@@ -19,25 +25,64 @@
 
   ::-webkit-scrollbar { width: 7px; height: 7px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #26252A; border-radius: 9999px; }
-  ::-webkit-scrollbar-thumb:hover { background: #E39A34; }
+  ::-webkit-scrollbar-thumb { background: #252536; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #7C3AED; }
 }
 
 @layer components {
+  /* ─── Liquid Glass ────────────────────────────────────────────────────────
+     Capas: tinte translúcido + backdrop blur/saturate + rim especular (inset)
+     + borde claro + sombra de flotación. La refracción SVG (Chromium) se suma
+     abajo vía @supports; el resto degrada a vidrio frosteado. */
   .card {
-    @apply bg-ink-card border border-ink-line rounded-2xl;
+    position: relative;
+    border-radius: 1.1rem;
+    background:
+      linear-gradient(135deg, rgba(139, 92, 246, 0.06), rgba(34, 211, 238, 0.03)),
+      rgba(16, 16, 24, 0.55);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow:
+      0 10px 34px -12px rgba(0, 0, 0, 0.65),
+      inset 0 1px 0 rgba(255, 255, 255, 0.14);
   }
+  /* Sheen especular — el borde de luz del vidrio curvo (arriba-izquierda) */
+  .card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(150deg, rgba(255, 255, 255, 0.10), transparent 42%);
+    opacity: 0.7;
+  }
+
+  /* Chrome/superficie flotante translúcida (sidebar, topbar) */
+  .glass-panel {
+    background: rgba(11, 11, 17, 0.55);
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+  }
+
   .label {
     @apply text-[11px] uppercase tracking-[0.14em] text-txt-mute font-medium;
   }
   .pill {
     @apply inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-semibold tnum;
   }
-  .pill-pos { @apply text-pos; background: rgba(55, 214, 160, 0.12); }
-  .pill-neg { @apply text-neg; background: rgba(240, 115, 111, 0.12); }
-  .btn-gold {
-    @apply bg-gold-500 hover:bg-gold-400 text-ink font-semibold px-4 py-2.5 rounded-lg
-           transition-colors disabled:opacity-40 disabled:cursor-not-allowed;
+  .pill-pos { @apply text-pos; background: rgba(52, 211, 153, 0.12); }
+  .pill-neg { @apply text-neg; background: rgba(251, 113, 133, 0.12); }
+
+  /* CTA principal — el "pulso" de la IA: gradiente violeta → cian */
+  .btn-primary {
+    @apply relative text-white font-semibold px-4 py-2.5 rounded-lg transition
+           disabled:opacity-40 disabled:cursor-not-allowed;
+    background-image: linear-gradient(120deg, #7C3AED 0%, #22D3EE 100%);
+  }
+  .btn-primary:hover:not(:disabled) {
+    box-shadow: 0 8px 26px -8px rgba(124, 58, 237, 0.6);
+    filter: brightness(1.06);
   }
   .btn-ghost {
     @apply text-txt-soft hover:text-txt hover:bg-ink-hover px-3 py-2 rounded-lg
@@ -46,10 +91,47 @@
   .input {
     @apply w-full bg-ink border border-ink-line rounded-lg px-3 py-2.5
            text-sm text-txt placeholder-txt-mute
-           focus:outline-none focus:border-gold-500 transition-colors;
+           focus:outline-none focus:border-iris-500 transition-colors;
   }
+  .input:focus { box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15); }
   .icon-btn {
     @apply grid place-items-center w-9 h-9 rounded-lg text-txt-soft
            hover:text-txt hover:bg-ink-hover transition-colors;
+  }
+
+  /* Texto con gradiente de acento (violeta → cian) */
+  .text-accent {
+    background-image: linear-gradient(120deg, #8B5CF6, #22D3EE);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+/* Elemento firma — pulso de telemetría "en vivo" (respeta reduce-motion) */
+.smq-pulse { display: block; }
+.smq-pulse.is-live path { animation: smq-signal 2.6s ease-in-out infinite; }
+@keyframes smq-signal {
+  0%, 100% { opacity: 0.72; }
+  50%      { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .smq-pulse.is-live path { animation: none; opacity: 1; }
+}
+
+/* ─── Refracción Liquid Glass (Chromium) ────────────────────────────────────
+   feTurbulence + feDisplacementMap distorsionan el backdrop como vidrio curvo.
+   Solo se activa donde backdrop-filter: url() está soportado; el resto ya tiene
+   el vidrio frosteado de arriba como fallback. */
+@supports (backdrop-filter: url(#liquid-glass)) or (-webkit-backdrop-filter: url(#liquid-glass)) {
+  .card,
+  .glass-panel {
+    backdrop-filter: url(#liquid-glass) blur(12px) saturate(150%);
+    -webkit-backdrop-filter: url(#liquid-glass) blur(12px) saturate(150%);
+  }
+  /* Momento "vidrio real" — refracción más marcada en superficies destacadas */
+  .liquid {
+    backdrop-filter: url(#liquid-glass-strong) blur(8px) saturate(160%);
+    -webkit-backdrop-filter: url(#liquid-glass-strong) blur(8px) saturate(160%);
   }
 }

@@ -51,7 +51,7 @@ export default function Login() {
             />
           </div>
           {error && <div className="text-[13.5px] text-neg">{error}</div>}
-          <button type="submit" className="btn-gold" disabled={loading}>
+          <button type="submit" className="btn-primary" disabled={loading}>
             {loading ? "Entrando…" : "Entrar"}
           </button>
         </form>

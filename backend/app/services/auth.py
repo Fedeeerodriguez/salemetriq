@@ -65,7 +65,7 @@ def get_current_user(token: str | None = Depends(oauth2_scheme)) -> dict:
         raise cred_error
 
     sb = get_supabase_admin()
-    res = sb.table("users").select("id, email, nombre, rol, activo").eq("id", user_id).limit(1).execute()
+    res = sb.table("users").select("id, email, nombre, rol, activo, is_demo").eq("id", user_id).limit(1).execute()
     user = res.data[0] if res.data else None
     if not user or not user.get("activo", True):
         raise cred_error

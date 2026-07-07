@@ -1,18 +1,20 @@
 import { NavLink } from "react-router-dom";
-import { LayoutGrid, Phone, Users, Mic, FileText } from "lucide-react";
+import { LayoutGrid, Phone, Users, Headphones, Mic, FileText } from "lucide-react";
 import SalemetriqLogo from "../SalemetriqLogo";
+import TelemetryPulse from "../TelemetryPulse";
 
 const NAV = [
   { to: "/overview", label: "Overview", icon: LayoutGrid },
   { to: "/calls", label: "Calls", icon: Phone },
   { to: "/closers", label: "Closers", icon: Users },
+  { to: "/setters", label: "Setters", icon: Headphones },
   { to: "/call-analysis", label: "Call Analysis", icon: Mic },
   { to: "/script-generator", label: "Script Generator", icon: FileText },
 ];
 
 export default function Sidebar() {
   return (
-    <aside className="w-[248px] shrink-0 bg-ink border-r border-ink-line flex flex-col">
+    <aside className="w-[248px] shrink-0 glass-panel border-r border-white/[0.06] flex flex-col">
       <div className="px-6 h-[68px] flex items-center border-b border-ink-line">
         <SalemetriqLogo size={26} withWord />
       </div>
@@ -26,7 +28,7 @@ export default function Sidebar() {
             className={({ isActive }) =>
               `relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium transition-colors ${
                 isActive
-                  ? "text-gold-400 bg-gold-500/[0.08]"
+                  ? "text-txt bg-iris-500/[0.10]"
                   : "text-txt-soft hover:text-txt hover:bg-ink-hover"
               }`
             }
@@ -34,7 +36,7 @@ export default function Sidebar() {
             {({ isActive }) => (
               <>
                 {isActive && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full bg-gold-500" />
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full bg-accent-grad shadow-glow" />
                 )}
                 <Icon size={18} strokeWidth={1.9} />
                 {label}
@@ -43,6 +45,18 @@ export default function Sidebar() {
           </NavLink>
         ))}
       </nav>
+
+      {/* Firma — telemetría en vivo */}
+      <div className="px-5 py-4 border-t border-ink-line">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-60 animate-ping" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-400" />
+          </span>
+          <span className="text-[10px] uppercase tracking-[0.18em] text-txt-mute font-medium">Señal en vivo</span>
+        </div>
+        <TelemetryPulse height={34} />
+      </div>
     </aside>
   );
 }

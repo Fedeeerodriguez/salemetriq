@@ -73,21 +73,51 @@ ANALYSIS_TOOL = {
                 },
             },
             "resumen": {"type": "string", "description": "Resumen ejecutivo de 2-3 frases."},
+            "fortalezas": {
+                "type": "array",
+                "description": "Qué hizo bien el closer en esta llamada (concreto).",
+                "items": {"type": "string"},
+            },
+            "mejoras": {
+                "type": "array",
+                "description": "Mejoras accionables priorizadas para este closer.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "accion": {"type": "string", "description": "Qué debería hacer distinto."},
+                        "prioridad": {"type": "string", "enum": ["alta", "media", "baja"]},
+                        "ejemplo": {
+                            "type": "string",
+                            "description": "Ejemplo concreto: una frase mejor que la que dijo.",
+                        },
+                    },
+                    "required": ["accion", "prioridad"],
+                },
+            },
+            "proxima_accion": {
+                "type": "string",
+                "description": "La UNA cosa más importante a trabajar antes de la próxima llamada.",
+            },
             "recomendaciones": {
                 "type": "array",
-                "description": "Acciones concretas para mejorar.",
+                "description": "(Compat) Lista simple de recomendaciones.",
                 "items": {"type": "string"},
             },
         },
-        "required": ["score_global", "dimensiones", "sentiment", "resumen"],
+        "required": ["score_global", "dimensiones", "sentiment", "resumen", "mejoras", "proxima_accion"],
     },
 }
 
 _SYSTEM = (
-    "Sos un analista senior de ventas B2B de habla hispana (Argentina). Analizás "
+    "Sos un coach senior de ventas B2B de habla hispana (Argentina). Analizás "
     "transcripts de llamadas de cierre (closers) con criterio, sin adular. Evaluás "
-    "apertura, descubrimiento de dolor, pitch, manejo de objeciones y cierre. Sos "
-    "concreto y accionable. Respondés SIEMPRE llamando a la tool registrar_analisis."
+    "apertura, descubrimiento de dolor, pitch, manejo de objeciones y cierre.\n\n"
+    "Tu objetivo NO es solo puntuar: es encontrar MEJORAS accionables para que el "
+    "closer venda más. Para cada mejora, cuando puedas, incluí un ejemplo concreto de "
+    "una frase mejor que la que efectivamente dijo. Reconocé también lo que hizo bien "
+    "(fortalezas) para no romper lo que funciona. Cerrá con la UNA cosa más importante "
+    "a trabajar antes de la próxima llamada (proxima_accion). Sé específico y honesto, "
+    "nunca genérico. Respondés SIEMPRE llamando a la tool registrar_analisis."
 )
 
 
