@@ -4,6 +4,8 @@ Solo accesible por usuarios is_superadmin (nosotros). Crear un cliente = crear u
 workspace (team) + su usuario admin dueño. El resto de los usuarios internos los
 crea después ese admin desde su propio workspace.
 """
+import secrets
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 
@@ -68,8 +70,11 @@ def crear_workspace(body: WorkspaceCreate, user: dict = Depends(require_superadm
     if sb.table("users").select("id").eq("email", email).limit(1).execute().data:
         raise HTTPException(status_code=409, detail="Ya existe un usuario con ese email")
 
-    # 1) workspace
-    team = sb.table("teams").insert({"nombre": body.nombre, "plan": body.plan, "is_demo": False}).execute().data[0]
+    # 1) workspace (con token para el webhook de Fathom)
+    team = sb.table("teams").insert({
+        "nombre": body.nombre, "plan": body.plan, "is_demo": False,
+        "fathom_token": secrets.token_hex(12),
+    }).execute().data[0]
 
     # 2) admin dueño
     admin = sb.table("users").insert({

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { UserPlus, Shield, Phone, Headphones, Check, X, Loader2, Send, Copy, RefreshCw } from "lucide-react";
+import { UserPlus, Shield, Phone, Headphones, Check, X, Loader2, Send, Copy, RefreshCw, Video, Webhook } from "lucide-react";
 import api from "../utils/api";
 import { getUser } from "../utils/auth";
 
@@ -19,6 +19,103 @@ function RolPill({ rol }) {
 }
 
 const EMPTY = { email: "", nombre: "", rol: "closer", password: "" };
+
+/* Panel para el admin: URL del webhook de Fathom del workspace. */
+function FathomPanel() {
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  async function toggle() {
+    const next = !open;
+    setOpen(next);
+    if (next && !url) {
+      const r = await api.get("/workspace/fathom");
+      setUrl(`${window.location.origin}${r.data.webhook_path}`);
+    }
+  }
+  function copiar() {
+    navigator.clipboard?.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <div className="card p-4">
+      <button onClick={toggle} className="w-full flex items-center gap-2.5 text-left">
+        <div className="w-8 h-8 rounded-lg bg-gold-400/15 text-gold-400 grid place-items-center ring-1 ring-gold-400/25 shrink-0"><Video size={16} /></div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[14px] font-medium text-txt">Conectar Fathom</div>
+          <div className="text-[12px] text-txt-mute">Las llamadas de tus closers entran solas al terminar. Configuralo una vez.</div>
+        </div>
+        <Webhook size={16} className="text-txt-mute shrink-0" />
+      </button>
+
+      {open && (
+        <div className="mt-4 pt-4 border-t border-white/[0.06] flex flex-col gap-3">
+          <ol className="text-[13px] text-txt-soft list-decimal ml-4 space-y-1.5">
+            <li>En Fathom → <span className="text-txt">Settings → Integrations → Webhooks</span>, creá un webhook.</li>
+            <li>Pegá esta URL (incluí <span className="text-txt">transcript</span> en el payload):</li>
+          </ol>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 text-[12px] font-mono text-txt bg-ink-raised rounded-lg px-3 py-2.5 ring-1 ring-ink-line break-all">{url || "…"}</code>
+            <button onClick={copiar} disabled={!url} className="btn-ghost px-3 py-2.5 shrink-0" title="Copiar URL">
+              {copied ? <Check size={16} className="text-pos" /> : <Copy size={16} />}
+            </button>
+          </div>
+          <p className="text-[12px] text-txt-mute">
+            Cada llamada se atribuye al closer cuyo email coincide con el de Fathom. Si difiere,
+            seteá el override con el botón <span className="text-gold-400">Fathom</span> de cada closer.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* Modal para setear el email de Fathom de un closer. */
+function FathomModal({ member, onClose, onSaved }) {
+  const [value, setValue] = useState(member.fathom_email || "");
+  const [saving, setSaving] = useState(false);
+
+  async function guardar() {
+    setSaving(true);
+    try {
+      const r = await api.patch(`/workspace/members/${member.id}/fathom-email`, { fathom_email: value.trim() || null });
+      onSaved(member.id, r.data.fathom_email);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="card liquid w-full max-w-md p-6 flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-gold-400/15 text-gold-400 grid place-items-center ring-1 ring-gold-400/25"><Video size={17} /></div>
+          <div>
+            <div className="font-display text-[16px] font-semibold text-txt">Email de Fathom</div>
+            <div className="text-[12px] text-txt-mute">{member.nombre || member.email}</div>
+          </div>
+        </div>
+        <p className="text-[13.5px] text-txt-soft">
+          Por defecto las llamadas se atribuyen con el email de login
+          (<span className="text-txt">{member.email}</span>). Si este closer graba en Fathom con
+          otro email, ponelo acá. Dejalo vacío para usar el de login.
+        </p>
+        <input className="input" type="email" placeholder={member.email}
+               value={value} onChange={(e) => setValue(e.target.value)} />
+        <div className="flex items-center gap-2 justify-end">
+          <button onClick={onClose} className="btn-ghost text-[13px]">Cancelar</button>
+          <button onClick={guardar} disabled={saving} className="btn-primary flex items-center gap-2 text-[13px]">
+            {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* Modal de vinculación de un setter con el bot de Telegram. */
 function TelegramModal({ member, onClose }) {
@@ -121,6 +218,7 @@ export default function Usuarios() {
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
   const [tgSetter, setTgSetter] = useState(null);
+  const [fathomCloser, setFathomCloser] = useState(null);
 
   function load() {
     api.get("/workspace/members").then((r) => setMembers(r.data)).catch(() => setErr("No se pudieron cargar los usuarios.")).finally(() => setLoading(false));
@@ -164,6 +262,8 @@ export default function Usuarios() {
       </div>
 
       {err && <div className="card p-4 text-[13.5px] text-neg">{err}</div>}
+
+      <FathomPanel />
 
       {showForm && (
         <form onSubmit={crear} className="card liquid p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -234,6 +334,11 @@ export default function Usuarios() {
                   <Send size={14} /> Telegram
                 </button>
               )}
+              {m.rol === "closer" && (
+                <button onClick={() => setFathomCloser(m)} className="btn-ghost text-[13px] inline-flex items-center gap-1.5" title="Email de Fathom">
+                  <Video size={14} /> Fathom
+                </button>
+              )}
               {m.id !== me?.id && (
                 <button onClick={() => toggleActivo(m)} className="btn-ghost text-[13px] inline-flex items-center gap-1.5">
                   {m.activo ? <><X size={14} /> Desactivar</> : <><Check size={14} /> Activar</>}
@@ -245,6 +350,13 @@ export default function Usuarios() {
       </div>
 
       {tgSetter && <TelegramModal member={tgSetter} onClose={() => setTgSetter(null)} />}
+      {fathomCloser && (
+        <FathomModal
+          member={fathomCloser}
+          onClose={() => setFathomCloser(null)}
+          onSaved={(id, val) => setMembers((prev) => prev.map((x) => (x.id === id ? { ...x, fathom_email: val } : x)))}
+        />
+      )}
     </div>
   );
 }

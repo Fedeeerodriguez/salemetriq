@@ -32,6 +32,10 @@ class MemberUpdate(BaseModel):
     password: str | None = None
 
 
+class FathomEmail(BaseModel):
+    fathom_email: str | None = None  # None/"" limpia el override
+
+
 # ── Organigrama del workspace (personas + agentes IA) ────────────────────────
 GRUPOS = [
     ("admin", "Administración"),
@@ -140,7 +144,7 @@ def listar_members(user: dict = Depends(require_admin)) -> list[dict]:
     sb = get_supabase_admin()
     res = (
         sb.table("users")
-        .select("id, nombre, email, rol, activo, created_at")
+        .select("id, nombre, email, rol, activo, created_at, fathom_email")
         .eq("team_id", user["team_id"])
         .order("created_at", desc=False)
         .execute()
@@ -264,3 +268,37 @@ def estado_telegram(member_id: str, user: dict = Depends(require_admin)) -> dict
         "vinculado": t.get("telegram_user_id") is not None,
         "telegram_link_code": t.get("telegram_link_code"),
     }
+
+
+# ── Fathom (ingesta de llamadas de closers) ──────────────────────────────────
+@router.get("/fathom")
+def fathom_info(user: dict = Depends(require_admin)) -> dict:
+    """Devuelve el token del workspace para armar la URL del webhook de Fathom.
+
+    Genera el token de forma perezosa si el workspace no lo tenía.
+    """
+    sb = get_supabase_admin()
+    team = user["team_id"]
+    row = sb.table("teams").select("fathom_token").eq("id", team).limit(1).execute().data
+    token = row[0].get("fathom_token") if row else None
+    if not token:
+        token = secrets.token_hex(12)
+        sb.table("teams").update({"fathom_token": token}).eq("id", team).execute()
+    return {"fathom_token": token, "webhook_path": f"/api/fathom/webhook?token={token}"}
+
+
+@router.patch("/members/{member_id}/fathom-email")
+def set_fathom_email(member_id: str, body: FathomEmail, user: dict = Depends(require_admin)) -> dict:
+    """Setea (o limpia) el email de Fathom con el que se atribuyen las llamadas de un closer."""
+    sb = get_supabase_admin()
+    target = (
+        sb.table("users").select("id, rol")
+        .eq("id", member_id).eq("team_id", user["team_id"]).limit(1).execute().data
+    )
+    if not target:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado en tu workspace")
+    if target[0]["rol"] != "closer":
+        raise HTTPException(status_code=400, detail="Solo los closers se atribuyen con Fathom")
+    valor = (body.fathom_email or "").strip().lower() or None
+    sb.table("users").update({"fathom_email": valor}).eq("id", member_id).execute()
+    return {"fathom_email": valor}
