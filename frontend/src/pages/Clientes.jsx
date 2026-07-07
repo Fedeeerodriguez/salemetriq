@@ -4,6 +4,10 @@ import api from "../utils/api";
 
 const EMPTY = { nombre: "", plan: "standard", admin_email: "", admin_nombre: "", admin_password: "" };
 
+function fullUrl(path) {
+  return path ? `${window.location.origin}${path}` : "";
+}
+
 export default function Clientes() {
   const [ws, setWs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -12,6 +16,7 @@ export default function Clientes() {
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
   const [creado, setCreado] = useState(null);
+  const [porInvitacion, setPorInvitacion] = useState(true);
 
   function load() {
     api.get("/admin/workspaces").then((r) => setWs(r.data)).catch(() => setErr("No se pudieron cargar los clientes.")).finally(() => setLoading(false));
@@ -23,8 +28,14 @@ export default function Clientes() {
     setSaving(true);
     setErr("");
     try {
-      const { data } = await api.post("/admin/workspaces", form);
-      setCreado({ ...data.admin, workspace: data.workspace.nombre, password: form.admin_password });
+      const payload = { ...form };
+      if (porInvitacion) delete payload.admin_password;
+      const { data } = await api.post("/admin/workspaces", payload);
+      setCreado({
+        ...data.admin, workspace: data.workspace.nombre,
+        password: porInvitacion ? null : form.admin_password,
+        invite_url: fullUrl(data.invite_path),
+      });
       setForm(EMPTY);
       setShowForm(false);
       load();
@@ -49,13 +60,28 @@ export default function Clientes() {
       {creado && (
         <div className="card liquid p-5 ring-1 ring-pos/30">
           <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-pos mb-2">Cliente creado ✓</div>
-          <p className="text-[13.5px] text-txt-soft">
-            Workspace <span className="text-txt font-medium">{creado.workspace}</span>. Pasale estas credenciales al cliente:
-          </p>
-          <div className="mt-3 bg-ink-raised rounded-xl p-3 font-mono text-[13px] text-txt flex items-center justify-between gap-3">
-            <span>{creado.email} · {creado.password}</span>
-            <button onClick={() => navigator.clipboard?.writeText(`${creado.email} / ${creado.password}`)} className="icon-btn" title="Copiar"><Copy size={15} /></button>
-          </div>
+          {creado.invite_url ? (
+            <>
+              <p className="text-[13.5px] text-txt-soft">
+                Workspace <span className="text-txt font-medium">{creado.workspace}</span>. Pasale este link a{" "}
+                <span className="text-txt">{creado.email}</span> para que defina su contraseña:
+              </p>
+              <div className="mt-3 bg-ink-raised rounded-xl p-3 font-mono text-[12.5px] text-txt flex items-center justify-between gap-3">
+                <span className="truncate">{creado.invite_url}</span>
+                <button onClick={() => navigator.clipboard?.writeText(creado.invite_url)} className="icon-btn shrink-0" title="Copiar link"><Copy size={15} /></button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-[13.5px] text-txt-soft">
+                Workspace <span className="text-txt font-medium">{creado.workspace}</span>. Pasale estas credenciales al cliente:
+              </p>
+              <div className="mt-3 bg-ink-raised rounded-xl p-3 font-mono text-[13px] text-txt flex items-center justify-between gap-3">
+                <span>{creado.email} · {creado.password}</span>
+                <button onClick={() => navigator.clipboard?.writeText(`${creado.email} / ${creado.password}`)} className="icon-btn" title="Copiar"><Copy size={15} /></button>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -81,10 +107,18 @@ export default function Clientes() {
             <label className="label">Email del admin</label>
             <input type="email" className="input mt-1.5" value={form.admin_email} onChange={(e) => setForm({ ...form, admin_email: e.target.value })} required />
           </div>
-          <div className="md:col-span-2">
-            <label className="label">Contraseña inicial del admin</label>
-            <input type="text" className="input mt-1.5" value={form.admin_password} onChange={(e) => setForm({ ...form, admin_password: e.target.value })} placeholder="mín. 6 caracteres" required />
+          <div className="md:col-span-2 flex items-center gap-2.5">
+            <input id="inv" type="checkbox" checked={porInvitacion} onChange={(e) => setPorInvitacion(e.target.checked)} className="accent-iris-500" />
+            <label htmlFor="inv" className="text-[13.5px] text-txt-soft">
+              Enviar por invitación (el admin define su propia contraseña) — recomendado
+            </label>
           </div>
+          {!porInvitacion && (
+            <div className="md:col-span-2">
+              <label className="label">Contraseña inicial del admin</label>
+              <input type="text" className="input mt-1.5" value={form.admin_password} onChange={(e) => setForm({ ...form, admin_password: e.target.value })} placeholder="mín. 6 caracteres" required={!porInvitacion} />
+            </div>
+          )}
           <div className="md:col-span-2 flex items-center gap-2">
             <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2">
               {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Crear cliente

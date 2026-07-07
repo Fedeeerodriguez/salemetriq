@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { UserPlus, Shield, Phone, Headphones, Check, X, Loader2, Send, Copy, RefreshCw, Video, Webhook } from "lucide-react";
+import { UserPlus, Shield, Phone, Headphones, Check, X, Loader2, Send, Copy, RefreshCw, Video, Webhook, Palette } from "lucide-react";
 import api from "../utils/api";
 import { getUser } from "../utils/auth";
 
@@ -209,6 +209,58 @@ function TelegramModal({ member, onClose }) {
   );
 }
 
+/* Panel de marca del workspace (color de acento del chip). */
+function BrandingPanel() {
+  const [open, setOpen] = useState(false);
+  const [color, setColor] = useState("");
+  const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function toggle() {
+    const next = !open;
+    setOpen(next);
+    if (next && !color) {
+      setLoading(true);
+      try {
+        const r = await api.get("/workspace");
+        setColor(r.data.brand_color || "#7C3AED");
+      } finally { setLoading(false); }
+    }
+  }
+  async function guardar() {
+    await api.patch("/workspace/branding", { brand_color: color });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }
+
+  return (
+    <div className="card p-4">
+      <button onClick={toggle} className="w-full flex items-center gap-2.5 text-left">
+        <div className="w-8 h-8 rounded-lg grid place-items-center ring-1 ring-white/10 shrink-0" style={{ background: color || "#7C3AED" }}>
+          <Palette size={16} className="text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[14px] font-medium text-txt">Marca del workspace</div>
+          <div className="text-[12px] text-txt-mute">Color de acento que ve tu equipo.</div>
+        </div>
+      </button>
+      {open && (
+        <div className="mt-4 pt-4 border-t border-white/[0.06] flex items-center gap-3">
+          {loading ? <span className="text-[13px] text-txt-mute">Cargando…</span> : (
+            <>
+              <input type="color" value={color || "#7C3AED"} onChange={(e) => setColor(e.target.value)} className="w-10 h-10 rounded-lg bg-transparent cursor-pointer" />
+              <input className="input flex-1 font-mono text-[13px]" value={color} onChange={(e) => setColor(e.target.value)} placeholder="#7C3AED" />
+              <button onClick={guardar} className="btn-primary flex items-center gap-2 text-[13px]">
+                {saved ? <Check size={15} className="text-white" /> : null} Guardar
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Usuarios() {
   const me = getUser();
   const [members, setMembers] = useState([]);
@@ -219,6 +271,8 @@ export default function Usuarios() {
   const [saving, setSaving] = useState(false);
   const [tgSetter, setTgSetter] = useState(null);
   const [fathomCloser, setFathomCloser] = useState(null);
+  const [porInvitacion, setPorInvitacion] = useState(true);
+  const [invite, setInvite] = useState(null);
 
   function load() {
     api.get("/workspace/members").then((r) => setMembers(r.data)).catch(() => setErr("No se pudieron cargar los usuarios.")).finally(() => setLoading(false));
@@ -230,7 +284,10 @@ export default function Usuarios() {
     setSaving(true);
     setErr("");
     try {
-      await api.post("/workspace/members", form);
+      const payload = { ...form };
+      if (porInvitacion) delete payload.password;
+      const { data } = await api.post("/workspace/members", payload);
+      if (data.invite_path) setInvite({ email: form.email, url: `${window.location.origin}${data.invite_path}` });
       setForm(EMPTY);
       setShowForm(false);
       load();
@@ -238,6 +295,15 @@ export default function Usuarios() {
       setErr(e.response?.data?.detail || "No se pudo crear el usuario.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function regenerarInvite(m) {
+    try {
+      const { data } = await api.post(`/workspace/members/${m.id}/invite`);
+      setInvite({ email: m.email, url: `${window.location.origin}${data.invite_path}` });
+    } catch (e) {
+      setErr(e.response?.data?.detail || "No se pudo generar la invitación.");
     }
   }
 
@@ -263,6 +329,21 @@ export default function Usuarios() {
 
       {err && <div className="card p-4 text-[13.5px] text-neg">{err}</div>}
 
+      {invite && (
+        <div className="card liquid p-5 ring-1 ring-pos/30">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-pos mb-2">Invitación lista ✓</div>
+          <p className="text-[13.5px] text-txt-soft">Pasale este link a <span className="text-txt">{invite.email}</span> para que defina su contraseña:</p>
+          <div className="mt-3 bg-ink-raised rounded-xl p-3 font-mono text-[12.5px] text-txt flex items-center justify-between gap-3">
+            <span className="truncate">{invite.url}</span>
+            <div className="flex items-center gap-1 shrink-0">
+              <button onClick={() => navigator.clipboard?.writeText(invite.url)} className="icon-btn" title="Copiar link"><Copy size={15} /></button>
+              <button onClick={() => setInvite(null)} className="icon-btn" title="Cerrar"><X size={15} /></button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <BrandingPanel />
       <FathomPanel />
 
       {showForm && (
@@ -283,13 +364,22 @@ export default function Usuarios() {
               <option value="admin">Admin</option>
             </select>
           </div>
-          <div>
-            <label className="label">Contraseña</label>
-            <input type="text" className="input mt-1.5" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="mín. 6 caracteres" required />
+          {!porInvitacion && (
+            <div>
+              <label className="label">Contraseña</label>
+              <input type="text" className="input mt-1.5" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="mín. 6 caracteres" required={!porInvitacion} />
+            </div>
+          )}
+          <div className="md:col-span-2 flex items-center gap-2.5">
+            <input id="inv-user" type="checkbox" checked={porInvitacion} onChange={(e) => setPorInvitacion(e.target.checked)} className="accent-iris-500" />
+            <label htmlFor="inv-user" className="text-[13.5px] text-txt-soft">
+              Enviar por invitación (el usuario define su propia contraseña) — recomendado
+            </label>
           </div>
           <div className="md:col-span-2 flex items-center gap-2">
             <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2">
-              {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Crear usuario
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+              {porInvitacion ? "Crear e invitar" : "Crear usuario"}
             </button>
             <button type="button" onClick={() => { setShowForm(false); setForm(EMPTY); }} className="btn-ghost">Cancelar</button>
           </div>
@@ -324,11 +414,18 @@ export default function Usuarios() {
             </div>
             <div><RolPill rol={m.rol} /></div>
             <div>
-              {m.activo
-                ? <span className="pill pill-pos">Activo</span>
-                : <span className="pill text-txt-mute bg-white/[0.06]">Inactivo</span>}
+              {m.pendiente
+                ? <span className="pill text-gold-400 bg-gold-400/12">Pendiente</span>
+                : m.activo
+                  ? <span className="pill pill-pos">Activo</span>
+                  : <span className="pill text-txt-mute bg-white/[0.06]">Inactivo</span>}
             </div>
             <div className="text-right flex items-center justify-end gap-1.5">
+              {m.pendiente && (
+                <button onClick={() => regenerarInvite(m)} className="btn-ghost text-[13px] inline-flex items-center gap-1.5" title="Generar link de invitación">
+                  <Copy size={14} /> Invitar
+                </button>
+              )}
               {m.rol === "setter" && (
                 <button onClick={() => setTgSetter(m)} className="btn-ghost text-[13px] inline-flex items-center gap-1.5" title="Vincular con Telegram">
                   <Send size={14} /> Telegram

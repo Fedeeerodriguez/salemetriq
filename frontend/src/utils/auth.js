@@ -14,6 +14,13 @@ export async function login(email, password) {
   return data.user;
 }
 
+export async function acceptInvite(token, password) {
+  const { data } = await api.post("/auth/accept-invite", { token, password });
+  localStorage.setItem(TOKEN_KEY, data.access_token);
+  localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+  return data.user;
+}
+
 export function logout() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);

@@ -4,6 +4,7 @@ Los usuarios viven en la tabla `users` de Supabase (columnas: id, email,
 password_hash, nombre, rol, activo). En Fase 0 el login valida contra esa tabla
 usando el cliente admin (service_role).
 """
+import secrets
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -28,6 +29,17 @@ def verify_password(plain: str, hashed: str) -> bool:
         return pwd_context.verify(plain, hashed)
     except Exception:
         return False
+
+
+# ── Invitaciones ──────────────────────────────────────────────────────────────
+INVITE_TTL_DAYS = 14
+
+
+def make_invite() -> tuple[str, str]:
+    """Devuelve (token, expires_iso) para un alta por invitación."""
+    token = secrets.token_urlsafe(24)
+    expires = (datetime.now(timezone.utc) + timedelta(days=INVITE_TTL_DAYS)).isoformat()
+    return token, expires
 
 
 # ── JWT ───────────────────────────────────────────────────────────────────────

@@ -10,7 +10,7 @@ import string
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 
-from ..services.auth import get_current_user, hash_password, require_admin
+from ..services.auth import get_current_user, hash_password, make_invite, require_admin
 from ..services.supabase_client import get_supabase_admin
 
 router = APIRouter(prefix="/api/workspace", tags=["workspace"])
@@ -22,7 +22,12 @@ class MemberCreate(BaseModel):
     email: EmailStr
     nombre: str
     rol: str
-    password: str
+    password: str | None = None   # si falta → alta por invitación
+
+
+class Branding(BaseModel):
+    brand_color: str | None = None
+    logo_url: str | None = None
 
 
 class MemberUpdate(BaseModel):
@@ -128,7 +133,7 @@ def info(user: dict = Depends(get_current_user)) -> dict:
     if not team:
         raise HTTPException(status_code=404, detail="Sin workspace")
     sb = get_supabase_admin()
-    t = sb.table("teams").select("id, nombre, plan").eq("id", team).limit(1).execute().data
+    t = sb.table("teams").select("id, nombre, plan, brand_color, logo_url").eq("id", team).limit(1).execute().data
     t = t[0] if t else {"id": team, "nombre": None, "plan": None}
     miembros = sb.table("users").select("rol").eq("team_id", team).eq("activo", True).execute().data or []
     counts = {"admin": 0, "closer": 0, "setter": 0}
@@ -144,12 +149,16 @@ def listar_members(user: dict = Depends(require_admin)) -> list[dict]:
     sb = get_supabase_admin()
     res = (
         sb.table("users")
-        .select("id, nombre, email, rol, activo, created_at, fathom_email")
+        .select("id, nombre, email, rol, activo, created_at, fathom_email, invite_token")
         .eq("team_id", user["team_id"])
         .order("created_at", desc=False)
         .execute()
     )
-    return res.data or []
+    out = []
+    for u in res.data or []:
+        pendiente = bool(u.pop("invite_token", None))  # no exponer el token
+        out.append({**u, "pendiente": pendiente})
+    return out
 
 
 # ── Crear miembro (solo admin) ───────────────────────────────────────────────
@@ -157,7 +166,8 @@ def listar_members(user: dict = Depends(require_admin)) -> list[dict]:
 def crear_member(body: MemberCreate, user: dict = Depends(require_admin)) -> dict:
     if body.rol not in ROLES_INTERNOS:
         raise HTTPException(status_code=400, detail=f"Rol inválido. Usá: {', '.join(sorted(ROLES_INTERNOS))}")
-    if len(body.password) < 6:
+    por_invitacion = not body.password
+    if body.password and len(body.password) < 6:
         raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 6 caracteres")
 
     sb = get_supabase_admin()
@@ -169,15 +179,22 @@ def crear_member(body: MemberCreate, user: dict = Depends(require_admin)) -> dic
     row = {
         "team_id": user["team_id"],
         "email": email,
-        "password_hash": hash_password(body.password),
         "nombre": body.nombre,
         "rol": body.rol,
         "activo": True,
         "is_demo": bool(user.get("is_demo")),
     }
+    invite_token = None
+    if por_invitacion:
+        invite_token, expires = make_invite()
+        row["invite_token"] = invite_token
+        row["invite_expires"] = expires
+    else:
+        row["password_hash"] = hash_password(body.password)
     created = sb.table("users").insert(row).execute().data[0]
     return {"id": created["id"], "email": created["email"], "nombre": created["nombre"],
-            "rol": created["rol"], "activo": created["activo"]}
+            "rol": created["rol"], "activo": created["activo"],
+            "invite_path": f"/invite/{invite_token}" if invite_token else None}
 
 
 # ── Editar / desactivar miembro (solo admin, mismo workspace) ────────────────
@@ -302,3 +319,38 @@ def set_fathom_email(member_id: str, body: FathomEmail, user: dict = Depends(req
     valor = (body.fathom_email or "").strip().lower() or None
     sb.table("users").update({"fathom_email": valor}).eq("id", member_id).execute()
     return {"fathom_email": valor}
+
+
+# ── (Re)generar invitación de un miembro pendiente ───────────────────────────
+@router.post("/members/{member_id}/invite")
+def regenerar_invitacion(member_id: str, user: dict = Depends(require_admin)) -> dict:
+    """Genera un nuevo link de invitación para un miembro (p. ej. si venció)."""
+    sb = get_supabase_admin()
+    target = (
+        sb.table("users").select("id")
+        .eq("id", member_id).eq("team_id", user["team_id"]).limit(1).execute().data
+    )
+    if not target:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado en tu workspace")
+    token, expires = make_invite()
+    sb.table("users").update({"invite_token": token, "invite_expires": expires}).eq("id", member_id).execute()
+    return {"invite_path": f"/invite/{token}"}
+
+
+# ── Branding del workspace ───────────────────────────────────────────────────
+@router.patch("/branding")
+def set_branding(body: Branding, user: dict = Depends(require_admin)) -> dict:
+    sb = get_supabase_admin()
+    updates: dict = {}
+    if body.brand_color is not None:
+        color = body.brand_color.strip()
+        if color and not (color.startswith("#") and len(color) in (4, 7)):
+            raise HTTPException(status_code=400, detail="Color inválido (usá formato hex, ej #7C3AED)")
+        updates["brand_color"] = color or None
+    if body.logo_url is not None:
+        updates["logo_url"] = body.logo_url.strip() or None
+    if not updates:
+        raise HTTPException(status_code=400, detail="Nada para actualizar")
+    sb.table("teams").update(updates).eq("id", user["team_id"]).execute()
+    row = sb.table("teams").select("brand_color, logo_url").eq("id", user["team_id"]).limit(1).execute().data[0]
+    return row

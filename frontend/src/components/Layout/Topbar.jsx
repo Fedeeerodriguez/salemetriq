@@ -9,6 +9,7 @@ const TITLES = {
   "/closers": "Closers",
   "/setters": "Setters",
   "/equipo": "Equipo",
+  "/reportes": "Reportes",
   "/call-analysis": "Call Analysis",
   "/script-generator": "Script Generator",
   "/usuarios": "Usuarios",
@@ -36,8 +37,11 @@ export default function Topbar() {
     <header className="h-[68px] shrink-0 glass-panel border-b border-white/[0.06] flex items-center justify-between px-8">
       <div className="flex items-center gap-3">
         <h1 className="font-display text-[22px] font-semibold text-txt tracking-tight">{title}</h1>
-        <span className="pill text-iris-300 bg-iris-500/12 flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-accent-grad" />
+        <span
+          className="pill text-iris-300 bg-iris-500/12 flex items-center gap-1.5"
+          style={user?.brand_color ? { color: user.brand_color, background: `${user.brand_color}1f` } : undefined}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-accent-grad" style={user?.brand_color ? { background: user.brand_color } : undefined} />
           {isSuperadmin() ? "Plataforma" : (getWorkspace() || "Workspace")}
         </span>
       </div>

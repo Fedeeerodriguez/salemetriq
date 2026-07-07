@@ -9,18 +9,18 @@ import secrets
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 
-from ..services.auth import hash_password, require_superadmin
+from ..services.auth import hash_password, make_invite, require_superadmin
 from ..services.supabase_client import get_supabase_admin
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
 class WorkspaceCreate(BaseModel):
-    nombre: str                 # nombre del cliente/workspace
+    nombre: str                          # nombre del cliente/workspace
     plan: str = "standard"
-    admin_email: EmailStr       # dueño del workspace
+    admin_email: EmailStr                # dueño del workspace
     admin_nombre: str
-    admin_password: str
+    admin_password: str | None = None    # si falta → se crea por invitación
 
 
 # ── Listar workspaces (clientes) ─────────────────────────────────────────────
@@ -62,7 +62,8 @@ def listar_workspaces(user: dict = Depends(require_superadmin)) -> list[dict]:
 # ── Crear cliente (workspace + admin dueño) ──────────────────────────────────
 @router.post("/workspaces")
 def crear_workspace(body: WorkspaceCreate, user: dict = Depends(require_superadmin)) -> dict:
-    if len(body.admin_password) < 6:
+    por_invitacion = not body.admin_password
+    if body.admin_password and len(body.admin_password) < 6:
         raise HTTPException(status_code=400, detail="La contraseña del admin debe tener al menos 6 caracteres")
 
     sb = get_supabase_admin()
@@ -76,17 +77,24 @@ def crear_workspace(body: WorkspaceCreate, user: dict = Depends(require_superadm
         "fathom_token": secrets.token_hex(12),
     }).execute().data[0]
 
-    # 2) admin dueño
-    admin = sb.table("users").insert({
+    # 2) admin dueño (con password o por invitación)
+    fila = {
         "team_id": team["id"],
         "email": email,
-        "password_hash": hash_password(body.admin_password),
         "nombre": body.admin_nombre,
         "rol": "admin",
         "activo": True,
         "is_demo": False,
         "is_superadmin": False,
-    }).execute().data[0]
+    }
+    invite_token = None
+    if por_invitacion:
+        invite_token, expires = make_invite()
+        fila["invite_token"] = invite_token
+        fila["invite_expires"] = expires
+    else:
+        fila["password_hash"] = hash_password(body.admin_password)
+    admin = sb.table("users").insert(fila).execute().data[0]
 
     # 3) marcar dueño en el workspace
     sb.table("teams").update({"owner_id": admin["id"]}).eq("id", team["id"]).execute()
@@ -94,4 +102,5 @@ def crear_workspace(body: WorkspaceCreate, user: dict = Depends(require_superadm
     return {
         "workspace": {"id": team["id"], "nombre": team["nombre"], "plan": team["plan"]},
         "admin": {"id": admin["id"], "email": admin["email"], "nombre": admin["nombre"]},
+        "invite_path": f"/invite/{invite_token}" if invite_token else None,
     }
