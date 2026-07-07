@@ -4,6 +4,9 @@ Cada admin gestiona SOLO los usuarios de su propio workspace (team_id). Puede
 crear/editar/desactivar admins, closers y setters. No puede crear superadmins ni
 tocar otros workspaces.
 """
+import secrets
+import string
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 
@@ -207,3 +210,57 @@ def editar_member(member_id: str, body: MemberUpdate, user: dict = Depends(requi
     sb.table("users").update(updates).eq("id", member_id).execute()
     row = sb.table("users").select("id, nombre, email, rol, activo").eq("id", member_id).limit(1).execute().data[0]
     return row
+
+
+# ── Código de vinculación con Telegram (setters) ─────────────────────────────
+# Sin caracteres ambiguos (0/O, 1/I) para dictarlo o copiarlo sin errores.
+_ALFABETO = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def _nuevo_codigo() -> str:
+    return "SMQ-" + "".join(secrets.choice(_ALFABETO) for _ in range(6))
+
+
+@router.post("/members/{member_id}/telegram-code")
+def generar_codigo_telegram(member_id: str, user: dict = Depends(require_admin)) -> dict:
+    """Genera (o regenera) el código para que el setter vincule su Telegram.
+
+    Regenerar invalida el anterior y desvincula el chat previo — útil si el setter
+    cambió de teléfono o el código se filtró.
+    """
+    sb = get_supabase_admin()
+    target = (
+        sb.table("users").select("id, rol, nombre")
+        .eq("id", member_id).eq("team_id", user["team_id"]).limit(1).execute().data
+    )
+    if not target:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado en tu workspace")
+    if target[0]["rol"] != "setter":
+        raise HTTPException(status_code=400, detail="Solo los setters se vinculan con Telegram")
+
+    # Reintentar por si choca con el índice único (muy improbable).
+    for _ in range(5):
+        code = _nuevo_codigo()
+        if not sb.table("users").select("id").eq("telegram_link_code", code).limit(1).execute().data:
+            break
+    sb.table("users").update(
+        {"telegram_link_code": code, "telegram_user_id": None}
+    ).eq("id", member_id).execute()
+    return {"telegram_link_code": code}
+
+
+@router.get("/members/{member_id}/telegram")
+def estado_telegram(member_id: str, user: dict = Depends(require_admin)) -> dict:
+    """Estado de vinculación de un setter: si ya vinculó y el código pendiente."""
+    sb = get_supabase_admin()
+    target = (
+        sb.table("users").select("telegram_user_id, telegram_link_code")
+        .eq("id", member_id).eq("team_id", user["team_id"]).limit(1).execute().data
+    )
+    if not target:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado en tu workspace")
+    t = target[0]
+    return {
+        "vinculado": t.get("telegram_user_id") is not None,
+        "telegram_link_code": t.get("telegram_link_code"),
+    }

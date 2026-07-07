@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     # ── Ingesta externa ───────────────────────────────────────────────────────
     INGEST_INTERNAL_KEY: str = ""
 
+    # ── Telegram (setters envían su resumen de setting por el bot) ────────────
+    # Token del bot de @BotFather. Sin esto, la Fase A queda deshabilitada.
+    TELEGRAM_BOT_TOKEN: str = ""
+    # Secret que Telegram manda en el header X-Telegram-Bot-Api-Secret-Token
+    # al llamar al webhook — evita que cualquiera postee al endpoint.
+    TELEGRAM_WEBHOOK_SECRET: str = ""
+
     # ── Auth (JWT) ────────────────────────────────────────────────────────────
     JWT_SECRET: str = _DEFAULT_JWT_SECRET
     JWT_ALGORITHM: str = "HS256"

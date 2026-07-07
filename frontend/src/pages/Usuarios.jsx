@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
-import { UserPlus, Shield, Phone, Headphones, Check, X, Loader2 } from "lucide-react";
+import { UserPlus, Shield, Phone, Headphones, Check, X, Loader2, Send, Copy, RefreshCw } from "lucide-react";
 import api from "../utils/api";
 import { getUser } from "../utils/auth";
+
+// Link directo al bot si se configuró VITE_TELEGRAM_BOT (ej: "SalemetriqBot").
+const BOT_USER = import.meta.env.VITE_TELEGRAM_BOT || "";
 
 const ROL = {
   admin: { label: "Admin", icon: Shield, cls: "text-iris-400 bg-iris-500/12" },
@@ -17,6 +20,98 @@ function RolPill({ rol }) {
 
 const EMPTY = { email: "", nombre: "", rol: "closer", password: "" };
 
+/* Modal de vinculación de un setter con el bot de Telegram. */
+function TelegramModal({ member, onClose }) {
+  const [estado, setEstado] = useState(null);
+  const [code, setCode] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [gen, setGen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    api.get(`/workspace/members/${member.id}/telegram`)
+      .then((r) => { setEstado(r.data); setCode(r.data.telegram_link_code); })
+      .catch(() => setEstado({ vinculado: false }))
+      .finally(() => setLoading(false));
+  }, [member.id]);
+
+  async function generar() {
+    setGen(true);
+    try {
+      const r = await api.post(`/workspace/members/${member.id}/telegram-code`);
+      setCode(r.data.telegram_link_code);
+      setEstado({ vinculado: false, telegram_link_code: r.data.telegram_link_code });
+    } finally {
+      setGen(false);
+    }
+  }
+
+  function copiar() {
+    navigator.clipboard?.writeText(`/link ${code}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="card liquid w-full max-w-md p-6 flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-cyan-500/15 text-cyan-400 grid place-items-center ring-1 ring-cyan-500/25"><Send size={17} /></div>
+          <div>
+            <div className="font-display text-[16px] font-semibold text-txt">Vincular Telegram</div>
+            <div className="text-[12px] text-txt-mute">{member.nombre || member.email}</div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="text-[13.5px] text-txt-mute py-4">Cargando…</div>
+        ) : estado?.vinculado ? (
+          <div className="flex flex-col gap-3">
+            <div className="pill pill-pos self-start flex items-center gap-1.5"><Check size={12} /> Ya vinculado</div>
+            <p className="text-[13.5px] text-txt-soft">
+              Este setter ya conectó su Telegram y puede enviar resúmenes al bot.
+              Si cambió de teléfono, regenerá el código (se desvincula el anterior).
+            </p>
+            <button onClick={generar} disabled={gen} className="btn-ghost self-start flex items-center gap-2 text-[13px]">
+              {gen ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Regenerar código
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <p className="text-[13.5px] text-txt-soft">
+              Generá un código y pasáselo al setter. Tiene que abrir el bot y enviar
+              <code className="text-cyan-400"> /link CÓDIGO</code>.
+            </p>
+            {code ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-center font-mono text-[18px] tracking-wider text-txt bg-ink-raised rounded-lg py-2.5 ring-1 ring-ink-line">{code}</code>
+                  <button onClick={copiar} className="btn-ghost px-3 py-2.5" title="Copiar /link CÓDIGO">
+                    {copied ? <Check size={16} className="text-pos" /> : <Copy size={16} />}
+                  </button>
+                </div>
+                {BOT_USER && (
+                  <a href={`https://t.me/${BOT_USER}?start=${code.replace(/^SMQ-/, "")}`} target="_blank" rel="noreferrer"
+                     className="text-[12.5px] text-cyan-400 hover:underline">Abrir el bot en Telegram →</a>
+                )}
+                <button onClick={generar} disabled={gen} className="btn-ghost self-start flex items-center gap-2 text-[12.5px] text-txt-mute">
+                  {gen ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} Generar otro
+                </button>
+              </>
+            ) : (
+              <button onClick={generar} disabled={gen} className="btn-primary self-start flex items-center gap-2">
+                {gen ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Generar código
+              </button>
+            )}
+          </div>
+        )}
+
+        <button onClick={onClose} className="btn-ghost self-end text-[13px]">Cerrar</button>
+      </div>
+    </div>
+  );
+}
+
 export default function Usuarios() {
   const me = getUser();
   const [members, setMembers] = useState([]);
@@ -25,6 +120,7 @@ export default function Usuarios() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [tgSetter, setTgSetter] = useState(null);
 
   function load() {
     api.get("/workspace/members").then((r) => setMembers(r.data)).catch(() => setErr("No se pudieron cargar los usuarios.")).finally(() => setLoading(false));
@@ -132,7 +228,12 @@ export default function Usuarios() {
                 ? <span className="pill pill-pos">Activo</span>
                 : <span className="pill text-txt-mute bg-white/[0.06]">Inactivo</span>}
             </div>
-            <div className="text-right">
+            <div className="text-right flex items-center justify-end gap-1.5">
+              {m.rol === "setter" && (
+                <button onClick={() => setTgSetter(m)} className="btn-ghost text-[13px] inline-flex items-center gap-1.5" title="Vincular con Telegram">
+                  <Send size={14} /> Telegram
+                </button>
+              )}
               {m.id !== me?.id && (
                 <button onClick={() => toggleActivo(m)} className="btn-ghost text-[13px] inline-flex items-center gap-1.5">
                   {m.activo ? <><X size={14} /> Desactivar</> : <><Check size={14} /> Activar</>}
@@ -142,6 +243,8 @@ export default function Usuarios() {
           </div>
         ))}
       </div>
+
+      {tgSetter && <TelegramModal member={tgSetter} onClose={() => setTgSetter(null)} />}
     </div>
   );
 }
