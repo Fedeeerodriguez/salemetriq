@@ -1,4 +1,11 @@
+# ── SALEMETRIQ — Backend (FastAPI) ───────────────────────────────────────────
+# Build context: backend/    ·    Puerto: 8000
+# Las variables de entorno (Supabase, Anthropic, JWT…) se inyectan desde EasyPanel.
 FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
 
 WORKDIR /app
 

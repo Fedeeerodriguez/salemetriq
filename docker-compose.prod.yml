@@ -1,0 +1,24 @@
+# Producción — build de las imágenes reales (no dev).
+# Probar local:  docker compose -f docker-compose.prod.yml up --build
+#   → web en http://localhost:8080  (proxea /api → api:8000)
+# EasyPanel NO usa este archivo (crea 2 servicios por Dockerfile), pero sirve de
+# referencia 1:1 de cómo se conectan.
+services:
+  api:
+    build: ./backend
+    env_file:
+      - ./backend/.env
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  web:
+    build: ./frontend
+    environment:
+      # host interno del servicio api en esta red de compose
+      BACKEND_URL: http://api:8000
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+    restart: unless-stopped
