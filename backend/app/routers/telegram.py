@@ -61,6 +61,9 @@ def _vincular(sb, code: str, telegram_user_id: int) -> dict | None:
     if not target:
         return None
     u = target[0]
+    # No consumir el código si el usuario está desactivado (que no queme su invite).
+    if not u.get("activo", True):
+        return u
     # Consumimos el código y guardamos el chat. El índice único evita que dos
     # personas usen el mismo telegram_user_id.
     sb.table("users").update(

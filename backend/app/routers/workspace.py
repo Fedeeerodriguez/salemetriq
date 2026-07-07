@@ -208,12 +208,21 @@ def editar_member(member_id: str, body: MemberUpdate, user: dict = Depends(requi
     if not target:
         raise HTTPException(status_code=404, detail="Usuario no encontrado en tu workspace")
 
+    # Proteger al dueño del workspace: solo él mismo puede modificarse.
+    owner = sb.table("teams").select("owner_id").eq("id", user["team_id"]).limit(1).execute().data
+    owner_id = owner[0]["owner_id"] if owner else None
+    if member_id == owner_id and user["id"] != owner_id:
+        raise HTTPException(status_code=403, detail="No podés modificar al dueño del workspace")
+
     updates: dict = {}
     if body.nombre is not None:
         updates["nombre"] = body.nombre
     if body.rol is not None:
         if body.rol not in ROLES_INTERNOS:
             raise HTTPException(status_code=400, detail="Rol inválido")
+        # No permitir auto-degradarse de admin (se quedaría sin panel de admin).
+        if member_id == user["id"] and body.rol != "admin":
+            raise HTTPException(status_code=400, detail="No podés cambiar tu propio rol de admin")
         updates["rol"] = body.rol
     if body.activo is not None:
         # No permitir que el admin se desactive a sí mismo (se quedaría afuera).

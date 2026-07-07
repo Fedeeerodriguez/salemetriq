@@ -89,9 +89,12 @@ def _invite_valido(row: dict) -> bool:
     if not exp:
         return True  # sin vencimiento explícito
     try:
-        return datetime.fromisoformat(exp) >= datetime.now(timezone.utc)
-    except ValueError:
-        return True
+        dt = datetime.fromisoformat(str(exp).replace("Z", "+00:00"))
+        if dt.tzinfo is None:  # naive → asumir UTC
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt >= datetime.now(timezone.utc)
+    except (ValueError, TypeError):
+        return False  # fail-closed: si no se puede parsear, tratar como inválida
 
 
 @router.get("/invite/{token}")

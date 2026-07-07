@@ -215,6 +215,7 @@ function BrandingPanel() {
   const [color, setColor] = useState("");
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   async function toggle() {
     const next = !open;
@@ -224,13 +225,20 @@ function BrandingPanel() {
       try {
         const r = await api.get("/workspace");
         setColor(r.data.brand_color || "#7C3AED");
+      } catch {
+        setColor("#7C3AED");
       } finally { setLoading(false); }
     }
   }
   async function guardar() {
-    await api.patch("/workspace/branding", { brand_color: color });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+    setError("");
+    try {
+      await api.patch("/workspace/branding", { brand_color: color });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } catch (e) {
+      setError(e.response?.data?.detail || "No se pudo guardar el color.");
+    }
   }
 
   return (
@@ -257,6 +265,7 @@ function BrandingPanel() {
           )}
         </div>
       )}
+      {error && <div className="mt-2 text-[12.5px] text-neg">{error}</div>}
     </div>
   );
 }

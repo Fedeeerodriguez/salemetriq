@@ -1,5 +1,6 @@
 """Configuración cargada desde variables de entorno (.env)."""
 import logging
+import os
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -55,7 +56,13 @@ class Settings(BaseSettings):
 settings = Settings()
 
 if settings.JWT_SECRET == _DEFAULT_JWT_SECRET:
-    logger.warning(
-        "SEGURIDAD: JWT_SECRET no está definido en el entorno — se usa el secret por "
-        "defecto. Configurá JWT_SECRET antes de ir a producción."
-    )
+    # El secret por defecto es público (está en el repo): con él, cualquiera puede
+    # firmar un JWT de admin/superadmin. No arrancamos con el default salvo que se
+    # pida explícitamente para desarrollo (SMQ_ALLOW_DEFAULT_SECRET=1).
+    if os.environ.get("SMQ_ALLOW_DEFAULT_SECRET") == "1":
+        logger.warning("SEGURIDAD: usando JWT_SECRET por defecto (solo dev). NO usar en producción.")
+    else:
+        raise RuntimeError(
+            "SEGURIDAD: JWT_SECRET no está definido. Definí JWT_SECRET en el entorno "
+            "(o SMQ_ALLOW_DEFAULT_SECRET=1 solo para desarrollo local)."
+        )

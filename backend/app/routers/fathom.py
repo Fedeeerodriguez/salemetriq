@@ -73,6 +73,17 @@ async def webhook(request: Request, background: BackgroundTasks, token: str = ""
     if closer_id:
         row["closer_id"] = closer_id
 
+    # Aislamiento: la clave única (provider, external_id) es global. Antes de
+    # upsertear, si ya existe una grabación con ese external_id en OTRO workspace,
+    # rechazamos — así un webhook no puede pisar/robar la grabación de otro team.
+    if row.get("external_id"):
+        existente = (
+            sb.table("call_recordings").select("id, team_id")
+            .eq("provider", "fathom").eq("external_id", row["external_id"]).limit(1).execute().data
+        )
+        if existente and existente[0].get("team_id") not in (None, team["id"]):
+            raise HTTPException(status_code=409, detail="La grabación pertenece a otro workspace")
+
     row = {k: v for k, v in row.items() if v is not None}
     res = sb.table("call_recordings").upsert(row, on_conflict="provider,external_id").execute()
     grabacion = res.data[0] if res.data else None

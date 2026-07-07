@@ -93,7 +93,12 @@ def ingest(
     dispara el análisis IA en segundo plano (busca mejoras). Protegido con
     INGEST_INTERNAL_KEY (header X-Ingest-Key) si está configurada.
     """
-    if settings.INGEST_INTERNAL_KEY and x_ingest_key != settings.INGEST_INTERNAL_KEY:
+    # Endpoint genérico (n8n/manual). Sin INGEST_INTERNAL_KEY configurada queda
+    # DESHABILITADO — para llamadas reales de Fathom usar /api/fathom/webhook
+    # (autenticado por workspace). Así no queda abierto por defecto.
+    if not settings.INGEST_INTERNAL_KEY:
+        raise HTTPException(status_code=503, detail="Ingesta genérica deshabilitada (configurá INGEST_INTERNAL_KEY o usá /api/fathom/webhook)")
+    if x_ingest_key != settings.INGEST_INTERNAL_KEY:
         raise HTTPException(status_code=401, detail="X-Ingest-Key inválida")
 
     try:
