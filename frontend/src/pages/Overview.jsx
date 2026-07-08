@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer, YAxis } from "recharts";
 import api from "../utils/api";
 
 /*
  * Overview — dashboard principal.
- * KPIs y pipeline salen de /api/metricas/overview (datos reales).
- * El chart de tendencia, la actividad y el foco son visuales de diseño por ahora.
+ * KPIs y pipeline salen de /api/metricas/overview.
+ * El foco de la semana sale de /api/metricas/foco (análisis del método) y la
+ * actividad reciente de /api/metricas/actividad (datos reales del workspace).
+ * El chart de tendencia sigue siendo visual de diseño por ahora.
  */
 
 const money = (n) => "$" + Number(n || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 });
@@ -17,12 +20,10 @@ const CHART = [
   { s: "S5", v: 27 }, { s: "S6", v: 33 }, { s: "S7", v: 32 }, { s: "S8", v: 38 },
 ];
 
-const ACTIVIDAD = [
-  { dot: "#34D399", nombre: "Fede R.", texto: "cerró con Marina S. — $2.400", cuando: "Hace 24 min" },
-  { dot: "#6B6B80", nombre: "Marina G.", texto: "cargó transcript de call — Lucas D.", cuando: "Hace 1 h" },
-  { dot: "#FB7185", nombre: "Tomás L.", texto: "— no show, Nico F.", cuando: "Hace 2 h" },
-  { dot: "#34D399", nombre: "Nico F.", texto: "cerró con Paula V. — $3.100", cuando: "Hace 3 h" },
-];
+// Color del punto según el tipo de evento de actividad.
+const DOT = {
+  cerro: "#34D399", cyan: "#22D3EE", neg: "#FB7185", neutral: "#6B6B80", info: "#6B6B80",
+};
 
 function Kpi({ label, value, delta, up, premium }) {
   return (
@@ -71,10 +72,15 @@ function LastDot({ points }) {
 }
 
 export default function Overview() {
+  const navigate = useNavigate();
   const [m, setM] = useState(null);
+  const [foco, setFoco] = useState(null);
+  const [actividad, setActividad] = useState(null);
 
   useEffect(() => {
     api.get("/metricas/overview").then((r) => setM(r.data)).catch(() => setM(null));
+    api.get("/metricas/foco").then((r) => setFoco(r.data)).catch(() => setFoco(null));
+    api.get("/metricas/actividad").then((r) => setActividad(r.data)).catch(() => setActividad([]));
   }, []);
 
   const kpis = [
@@ -140,39 +146,55 @@ export default function Overview() {
 
       {/* ── Panel derecho ── */}
       <div className="flex flex-col gap-5">
-        {/* Foco de la semana — recomendación de la IA (pulso violeta→cian) */}
+        {/* Foco de la semana — análisis del equipo contra el método (pulso violeta→cian) */}
         <div className="card liquid p-5 ring-1 ring-iris-500/25">
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Foco de la semana</div>
-          <h3 className="font-display text-[18px] font-semibold text-txt mt-2">Manejo de objeción de precio</h3>
-          <p className="text-[13.5px] text-txt-soft leading-relaxed mt-2">
-            En 6 de las últimas 12 calls perdidas, la objeción de precio apareció después del
-            minuto 20 sin un manejo claro. Trabajen esto antes de sumar nada más.
-          </p>
-          <div className="flex items-center gap-3 mt-4">
-            <div className="flex-1 h-1.5 rounded-full bg-ink-line overflow-hidden">
-              <div className="h-full rounded-full bg-accent-grad" style={{ width: "78%" }} />
-            </div>
-            <span className="text-[13px] font-semibold text-iris-400 tnum">78/100</span>
-          </div>
-          <button className="btn-primary w-full mt-4 text-[14px]">Ver plan de la semana</button>
+          {foco === null ? (
+            <p className="text-[13.5px] text-txt-mute mt-3">Cargando…</p>
+          ) : (
+            <>
+              <h3 className="font-display text-[18px] font-semibold text-txt mt-2">{foco.titulo}</h3>
+              <p className="text-[13.5px] text-txt-soft leading-relaxed mt-2">{foco.texto}</p>
+              {foco.disponible && foco.score != null && (
+                <div className="flex items-center gap-3 mt-4">
+                  <div className="flex-1 h-1.5 rounded-full bg-ink-line overflow-hidden">
+                    <div className="h-full rounded-full bg-accent-grad" style={{ width: `${foco.score}%` }} />
+                  </div>
+                  <span className="text-[13px] font-semibold text-iris-400 tnum">{foco.score}/100</span>
+                </div>
+              )}
+              <button
+                onClick={() => navigate(foco.disponible ? "/coaching" : "/conexiones")}
+                className="btn-primary w-full mt-4 text-[14px]"
+              >
+                {foco.disponible ? "Ver plan de la semana" : "Conectar mis llamadas"}
+              </button>
+            </>
+          )}
         </div>
 
         {/* Actividad reciente */}
         <div className="card p-5">
           <h3 className="font-display text-[15px] font-semibold text-txt mb-4">Actividad reciente</h3>
-          <div className="flex flex-col gap-4">
-            {ACTIVIDAD.map((a, i) => (
-              <div key={i} className="flex gap-3">
-                <span className="mt-1.5 w-2 h-2 rounded-full shrink-0" style={{ background: a.dot }} />
-                <div className="min-w-0">
-                  <p className="text-[13.5px] text-txt leading-snug">
-                    <span className="font-semibold">{a.nombre}</span> {a.texto}
-                  </p>
-                  <p className="text-[12px] text-txt-mute mt-0.5">{a.cuando}</p>
+          {actividad === null ? (
+            <p className="text-[13px] text-txt-mute">Cargando…</p>
+          ) : actividad.length === 0 ? (
+            <p className="text-[13px] text-txt-mute">Todavía no hay actividad. Cuando entren llamadas y resúmenes, van a aparecer acá.</p>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {actividad.map((a, i) => (
+                <div key={i} className="flex gap-3">
+                  <span className="mt-1.5 w-2 h-2 rounded-full shrink-0" style={{ background: DOT[a.tipo] || DOT.neutral }} />
+                  <div className="min-w-0">
+                    <p className="text-[13.5px] text-txt leading-snug">
+                      <span className="font-semibold">{a.nombre}</span> {a.texto}
+                    </p>
+                    <p className="text-[12px] text-txt-mute mt-0.5">{a.hace}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
