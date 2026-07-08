@@ -31,6 +31,14 @@ class Settings(BaseSettings):
     # ── Ingesta externa ───────────────────────────────────────────────────────
     INGEST_INTERNAL_KEY: str = ""
 
+    # ── Conexiones (Fathom por usuario) ───────────────────────────────────────
+    # URL pública del backend — Fathom necesita un destino HTTPS accesible para
+    # registrar el webhook. Ej: https://mi-backend.easypanel.host
+    PUBLIC_BACKEND_URL: str = ""
+    # Clave para cifrar credenciales de terceros (API key de Fathom) en reposo.
+    # Si no se define, se deriva de JWT_SECRET (menos ideal, pero funcional).
+    SMQ_ENCRYPTION_KEY: str = ""
+
     # ── Telegram (setters envían su resumen de setting por el bot) ────────────
     # Token del bot de @BotFather. Sin esto, la Fase A queda deshabilitada.
     TELEGRAM_BOT_TOKEN: str = ""

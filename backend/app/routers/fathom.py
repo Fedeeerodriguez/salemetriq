@@ -25,11 +25,25 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/fathom", tags=["fathom"])
 
 
-def _resolver_team(sb, token: str) -> dict | None:
+def _resolver_destino(sb, token: str) -> dict | None:
+    """Resuelve a qué workspace (y opcionalmente closer) pertenece el token.
+
+    - token de USUARIO (fathom_user_token) → atribuye directo a ese closer.
+    - token de WORKSPACE (teams.fathom_token) → atribuye por email del host.
+    Devuelve {team_id, is_demo, closer_id?} o None si el token no existe.
+    """
     if not token:
         return None
-    res = sb.table("teams").select("id, is_demo").eq("fathom_token", token).limit(1).execute().data
-    return res[0] if res else None
+    u = (
+        sb.table("users").select("id, team_id, is_demo")
+        .eq("fathom_user_token", token).limit(1).execute().data
+    )
+    if u:
+        return {"team_id": u[0]["team_id"], "is_demo": bool(u[0].get("is_demo")), "closer_id": u[0]["id"]}
+    t = sb.table("teams").select("id, is_demo").eq("fathom_token", token).limit(1).execute().data
+    if t:
+        return {"team_id": t[0]["id"], "is_demo": bool(t[0].get("is_demo")), "closer_id": None}
+    return None
 
 
 def _resolver_closer(sb, team_id: str, emails: list[str]) -> str | None:
@@ -56,20 +70,23 @@ def _resolver_closer(sb, team_id: str, emails: list[str]) -> str | None:
 @router.post("/webhook")
 async def webhook(request: Request, background: BackgroundTasks, token: str = "") -> dict:
     sb = get_supabase_admin()
-    team = _resolver_team(sb, token)
-    if not team:
-        raise HTTPException(status_code=401, detail="Token de workspace inválido")
+    destino = _resolver_destino(sb, token)
+    if not destino:
+        raise HTTPException(status_code=401, detail="Token inválido")
 
     payload = await request.json()
     row = normalizar_provider("fathom", payload)  # agrega provider + raw
 
-    # Atribución: primero el host, luego cualquier invitado que sea closer.
+    # Atribución: si el token es de un usuario, va directo a él. Si es de workspace,
+    # se resuelve por el email del host (o invitados closer).
+    closer_id = destino.get("closer_id")
     host = host_email(payload)
-    candidatos = ([host] if host else []) + invitee_emails(payload)
-    closer_id = _resolver_closer(sb, team["id"], candidatos)
+    if not closer_id:
+        candidatos = ([host] if host else []) + invitee_emails(payload)
+        closer_id = _resolver_closer(sb, destino["team_id"], candidatos)
 
-    row["team_id"] = team["id"]
-    row["is_demo"] = bool(team.get("is_demo"))
+    row["team_id"] = destino["team_id"]
+    row["is_demo"] = destino["is_demo"]
     if closer_id:
         row["closer_id"] = closer_id
 
@@ -81,7 +98,7 @@ async def webhook(request: Request, background: BackgroundTasks, token: str = ""
             sb.table("call_recordings").select("id, team_id")
             .eq("provider", "fathom").eq("external_id", row["external_id"]).limit(1).execute().data
         )
-        if existente and existente[0].get("team_id") not in (None, team["id"]):
+        if existente and existente[0].get("team_id") not in (None, destino["team_id"]):
             raise HTTPException(status_code=409, detail="La grabación pertenece a otro workspace")
 
     row = {k: v for k, v in row.items() if v is not None}
@@ -95,7 +112,7 @@ async def webhook(request: Request, background: BackgroundTasks, token: str = ""
     if not closer_id:
         logger.warning(
             "Fathom: grabación %s sin closer asignado (host=%s) en team %s",
-            grabacion.get("id") if grabacion else "?", host, team["id"],
+            grabacion.get("id") if grabacion else "?", host, destino["team_id"],
         )
 
     return {

@@ -4,9 +4,29 @@ Cuando un **closer** termina una llamada, Fathom la procesa y dispara un webhook
 hacia SALEMETRIQ. El backend recibe el transcript, lo atribuye al closer correcto
 dentro de su workspace y **dispara el análisis IA** (coaching) automáticamente.
 
-La atribución es **multi-tenant por token de workspace + email del closer**: cada
-workspace tiene su propio `fathom_token` en la URL del webhook, y dentro de ese
-workspace la llamada se asigna al closer cuyo email coincide con el host de Fathom.
+Hay **dos formas** de conectar Fathom:
+
+## Opción A (recomendada) — cada closer conecta su propia cuenta
+
+Self-service, sin que el admin toque nada:
+
+1. El closer entra a **Conexiones** en la app.
+2. En la tarjeta **Fathom**, pega su **API key personal** (Fathom → Settings →
+   Integrations → API) y toca **Conectar**.
+3. El backend valida la key y **registra el webhook automáticamente** en la cuenta
+   de Fathom del closer, apuntando a nuestro endpoint con un **token propio del
+   usuario**. Desde ahí, sus llamadas entran solas y se atribuyen **directo a él**
+   (no depende del email).
+
+Requisito: el backend debe tener `PUBLIC_BACKEND_URL` configurada (la URL pública
+del backend), porque Fathom necesita un destino HTTPS accesible para el webhook.
+La API key se guarda **cifrada** (Fernet). Desconectar borra el webhook en Fathom.
+
+## Opción B — un webhook por workspace (lo maneja el admin)
+
+La atribución es **por token de workspace + email del closer**: cada workspace tiene
+su propio `fathom_token` en la URL del webhook, y dentro de ese workspace la llamada
+se asigna al closer cuyo email coincide con el host de Fathom.
 
 ## 1. Obtener la URL del webhook (como admin)
 
