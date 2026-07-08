@@ -6,6 +6,7 @@ import InviteAccept from "./pages/InviteAccept";
 import Overview from "./pages/Overview";
 import Reportes from "./pages/Reportes";
 import Conexiones from "./pages/Conexiones";
+import Coaching from "./pages/Coaching";
 import Calls from "./pages/Calls";
 import Closers from "./pages/Closers";
 import Setters from "./pages/Setters";
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="setters" element={<Setters />} />
           <Route path="equipo" element={<Equipo />} />
           <Route path="reportes" element={<Reportes />} />
+          <Route path="coaching" element={<Coaching />} />
           <Route path="conexiones" element={<Conexiones />} />
           <Route path="users/:id" element={<UserProfile />} />
           <Route path="call-analysis" element={<CallAnalysis />} />

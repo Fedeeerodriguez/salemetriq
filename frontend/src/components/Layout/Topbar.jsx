@@ -10,6 +10,7 @@ const TITLES = {
   "/setters": "Setters",
   "/equipo": "Equipo",
   "/reportes": "Reportes",
+  "/coaching": "Coaching",
   "/conexiones": "Conexiones",
   "/call-analysis": "Call Analysis",
   "/script-generator": "Script Generator",

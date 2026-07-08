@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { LayoutGrid, Phone, Users, Headphones, Mic, FileText, UserCog, Building2, Network, BarChart3, Plug } from "lucide-react";
+import { LayoutGrid, Phone, Users, Headphones, Mic, FileText, UserCog, Building2, Network, BarChart3, Plug, GraduationCap } from "lucide-react";
 import SalemetriqLogo from "../SalemetriqLogo";
 import TelemetryPulse from "../TelemetryPulse";
 import { isSuperadmin, isAdmin } from "../../utils/auth";
@@ -12,6 +12,7 @@ const DASHBOARD = [
   { to: "/equipo", label: "Equipo", icon: Network },
   { to: "/reportes", label: "Reportes", icon: BarChart3 },
   { to: "/conexiones", label: "Conexiones", icon: Plug },
+  { to: "/coaching", label: "Coaching", icon: GraduationCap },
   { to: "/call-analysis", label: "Call Analysis", icon: Mic },
   { to: "/script-generator", label: "Script Generator", icon: FileText },
 ];

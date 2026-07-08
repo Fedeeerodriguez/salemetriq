@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Phone, Headphones, TrendingUp, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, Phone, Headphones, TrendingUp, CheckCircle2, XCircle, GraduationCap } from "lucide-react";
 import api from "../utils/api";
 import TelemetryPulse from "../components/TelemetryPulse";
+import { EtapasBars, ChecklistAdopcion } from "./Coaching";
 
 const money = (n) => "$" + Number(n || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 });
 const fecha = (f) =>
@@ -43,11 +44,14 @@ export default function UserProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [p, setP] = useState(null);
+  const [coach, setCoach] = useState(null);
   const [err, setErr] = useState("");
 
   useEffect(() => {
     setP(null);
+    setCoach(null);
     api.get(`/users/${id}/profile`).then((r) => setP(r.data)).catch(() => setErr("No se pudo cargar el perfil."));
+    api.get(`/coaching/closer/${id}`).then((r) => setCoach(r.data.n ? r.data : null)).catch(() => {});
   }, [id]);
 
   if (err) return <div className="card p-5 text-[14px] text-txt-soft">{err}</div>;
@@ -86,6 +90,44 @@ export default function UserProfile() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {(p.kpis || []).map((k) => <Kpi key={k.label} {...k} />)}
       </div>
+
+      {/* Coaching contra el método (closers con llamadas analizadas) */}
+      {isCloser && coach && (
+        <div className="card liquid p-5 flex flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <GraduationCap size={16} className="text-accent" />
+            <span className="label text-accent">Coaching contra el método</span>
+            <span className="text-[11px] text-txt-mute tnum ml-auto">{coach.n} llamada(s)</span>
+          </div>
+          {coach.narrativa && (
+            <div className="text-[13.5px] text-txt-soft whitespace-pre-wrap leading-relaxed">{coach.narrativa}</div>
+          )}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-1">
+            <div>
+              <div className="label mb-3">Promedio por etapa</div>
+              <EtapasBars etapas={coach.etapas_prom} debil={coach.etapa_debil} />
+            </div>
+            <div>
+              <div className="label mb-3">Técnicas menos usadas</div>
+              <ChecklistAdopcion checklist={(coach.checklist || []).slice(0, 6)} />
+            </div>
+          </div>
+          {coach.ejemplos_mejora?.length > 0 && (
+            <div className="pt-1">
+              <div className="label mb-2">Frases a corregir</div>
+              <div className="flex flex-col gap-2">
+                {coach.ejemplos_mejora.map((m, i) => (
+                  <div key={i} className="bg-ink-raised rounded-lg px-3 py-2 text-[12.5px]">
+                    <span className="text-txt-mute capitalize">{m.etapa}:</span>{" "}
+                    <span className="text-txt-soft">{m.accion}</span>
+                    {m.ejemplo && <div className="text-accent mt-1 italic">“{m.ejemplo}”</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-5">
         {/* Performance */}
