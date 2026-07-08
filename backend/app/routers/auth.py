@@ -83,6 +83,44 @@ def me(user: dict = Depends(get_current_user)) -> UserOut:
     return _user_out(get_supabase_admin(), user)
 
 
+class UpdateMeRequest(BaseModel):
+    nombre: str | None = None
+    password_actual: str | None = None
+    password_nueva: str | None = None
+
+
+@router.patch("/me", response_model=UserOut)
+def actualizar_me(body: UpdateMeRequest, user: dict = Depends(get_current_user)) -> UserOut:
+    """El usuario edita su propio perfil: nombre y/o contraseña."""
+    sb = get_supabase_admin()
+    updates: dict = {}
+
+    if body.nombre is not None:
+        nombre = body.nombre.strip()
+        if not nombre:
+            raise HTTPException(status_code=400, detail="El nombre no puede estar vacío")
+        updates["nombre"] = nombre
+
+    if body.password_nueva:
+        if len(body.password_nueva) < 6:
+            raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 6 caracteres")
+        row = sb.table("users").select("password_hash").eq("id", user["id"]).limit(1).execute().data
+        actual_hash = (row[0].get("password_hash") if row else "") or ""
+        if not verify_password(body.password_actual or "", actual_hash):
+            raise HTTPException(status_code=400, detail="La contraseña actual es incorrecta")
+        updates["password_hash"] = hash_password(body.password_nueva)
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="No hay cambios para guardar")
+
+    sb.table("users").update(updates).eq("id", user["id"]).execute()
+    fresh = (
+        sb.table("users").select("id, email, nombre, rol, team_id, is_superadmin")
+        .eq("id", user["id"]).limit(1).execute().data
+    )
+    return _user_out(sb, fresh[0] if fresh else {**user, **updates})
+
+
 # ── Invitaciones (alta sin password) ─────────────────────────────────────────
 def _invite_valido(row: dict) -> bool:
     exp = row.get("invite_expires")

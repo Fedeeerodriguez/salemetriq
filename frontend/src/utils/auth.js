@@ -21,6 +21,12 @@ export async function acceptInvite(token, password) {
   return data.user;
 }
 
+export async function updateMe(payload) {
+  const { data } = await api.patch("/auth/me", payload);
+  localStorage.setItem(USER_KEY, JSON.stringify(data));
+  return data;
+}
+
 export function logout() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);

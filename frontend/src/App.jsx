@@ -6,6 +6,7 @@ import InviteAccept from "./pages/InviteAccept";
 import Overview from "./pages/Overview";
 import Reportes from "./pages/Reportes";
 import Conexiones from "./pages/Conexiones";
+import MiPerfil from "./pages/MiPerfil";
 import Coaching from "./pages/Coaching";
 import Calls from "./pages/Calls";
 import Closers from "./pages/Closers";
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="reportes" element={<Reportes />} />
           <Route path="coaching" element={<Coaching />} />
           <Route path="conexiones" element={<Conexiones />} />
+          <Route path="perfil" element={<MiPerfil />} />
           <Route path="users/:id" element={<UserProfile />} />
           <Route path="call-analysis" element={<CallAnalysis />} />
           <Route path="script-generator" element={<ScriptGenerator />} />
