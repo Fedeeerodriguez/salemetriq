@@ -23,7 +23,8 @@ class FathomError(Exception):
 
 
 def _headers(api_key: str) -> dict:
-    return {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    # Fathom autentica con el header X-Api-Key (no Authorization: Bearer).
+    return {"X-Api-Key": api_key, "Content-Type": "application/json"}
 
 
 def validar_key(api_key: str) -> bool:
