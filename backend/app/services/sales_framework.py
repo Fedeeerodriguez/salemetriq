@@ -69,3 +69,53 @@ obligatorio después del pitch. Cierre = coherencia entre problema, responsabili
 
 CHECKLIST DE CIERRE (deben estar presentes): Brecha, Deseo, Miedo, Preparación (se siente capaz), Urgencia.
 """
+
+# ── Guía de SCRIPTING ────────────────────────────────────────────────────────
+# Insumo para GENERAR guiones (no para analizar). Trae los wordtracks y plantillas
+# del método con placeholders [ASÍ], para que el guion suene al método real.
+SCRIPTING_GUIA = """\
+GUÍA PARA ARMAR GUIONES (scripting) — usá los wordtracks del método, con placeholders entre [CORCHETES].
+
+PRINCIPIOS DE EJECUCIÓN (aplican a TODO guion):
+- No son preguntas de robot: se adaptan al tono y energía del prospecto y se profundiza según la respuesta.
+- El closer PREGUNTA y GUÍA; el prospecto se autoconvence. Escuchar activo, no recitar.
+- Todo se conecta de vuelta al OUTCOME (resultado deseado) definido al inicio.
+- Placeholders a completar según el contexto: [RESULTADO DESEADO], [MÉTODO ACTUAL], [X TIEMPO], [DOLOR], [OFERTA], [PRECIO], [NOMBRE].
+
+BANCOS DE PREGUNTAS / WORDTRACKS POR ETAPA:
+
+CUALIFICACIÓN (descubrimiento):
+- "¿Qué te gustaría lograr ESPECÍFICAMENTE con [TEMA]?" (la palabra 'específicamente' es obligatoria).
+- "¿Qué venís haciendo hasta ahora para lograrlo?" / "¿Hace cuánto lo venís intentando?"
+- "Fuera de pequeños cambios, ¿dirías que [MÉTODO ACTUAL] te está llevando a [RESULTADO]?" (la salida por 'pequeños cambios' evita la defensiva).
+- "¿Por qué SENTÍS que todavía no lo lograste?" (emocional: 'sentís', no 'pensás').
+- Cerrar con el motivo profundo: "¿Por qué es importante para vos lograr esto ahora?" (quitando las respuestas obvias).
+
+VISUALIZACIÓN (deseo) — PLANTILLA BASE:
+1. Inicial: "En términos de lograr [RESULTADO DESEADO], cuando nuestro equipo/sistema te ponga en la posición donde ya lo estás consiguiendo, ¿qué significaría eso para vos personalmente?"
+2. Profundizar (si es reservado): "Más allá de los números... ¿qué significa REALMENTE para vos, como persona, llegar a ese punto de forma consistente?"
+3. Si pide claridad: "¿Cómo se sentiría estar en esa posición? ¿Cómo cambiaría tu vida vs. donde estás hoy? ¿Qué podrías hacer que hoy no podés?"
+4. Explorar: "¿Cómo te haría sentir saber que tenés el poder de hacer que eso pase?"
+- Regla: hacer que el prospecto CONSTRUYA la visión, no contársela. Lenguaje "cuando YO te lleve", "cuando esto suceda" (no "si").
+
+CONSECUENCIA / MIEDO:
+- REALITY CHECK primero (escalón intermedio, con respeto): "Hoy, siendo honestos, todavía no tenés [HABILIDAD/RESULTADO], ¿no?" → esperar el "sí" antes de bajar.
+- "¿Cómo te HARÍAS sentir si dentro de [X TIEMPO] seguís exactamente igual?" (no "cómo se vería").
+- "¿Te vas a conformar con que esto siga siendo tu realidad?" → casi siempre "no" → "¿por qué no?".
+- Pregunta del control (central): "¿Quién es el responsable de que esto pase?" → llevar hasta que diga "YO".
+- Tono más bajo, calmado, serio. No soltar hasta que el miedo esté presente.
+
+PITCH:
+- Micro-compromiso antes: "¿Querés que te muestre cómo sería el plan para vos?"
+- Por pilares, cada uno con QUÉ / POR QUÉ (atado a SU dolor y outcome) / CÓMO. No abrumar con detalle técnico.
+- Asumir el cierre: no pausar después del precio, fluir directo al próximo paso.
+
+OBJECIONES (orden OBLIGATORIO: 1-FINANZAS, 2-LOGÍSTICA, 3-MIEDO):
+- Aislar el deseo: "Si el dinero no fuera un tema, ¿es esto lo que querés hacer?"
+- Reframes: auto-sabotaje, riesgo vs. certeza, analogía del gimnasio/auto. Confrontar la creencia con emoción, no con lógica.
+- Tie-down / línea en la arena: "¿Es el momento de comprometerte de verdad con [RESULTADO]?"
+
+CIERRE:
+- Tie-down de compromiso después del pitch (obligatorio). Coherencia problema → responsabilidad → plan.
+- Checklist que el guion debe cubrir: Brecha, Deseo, Miedo, Preparación (se siente capaz), Urgencia.
+"""
