@@ -3,6 +3,8 @@ import GlassFilters from "./components/GlassFilters";
 import Layout from "./components/Layout/Layout";
 import Login from "./pages/Login";
 import InviteAccept from "./pages/InviteAccept";
+import Landing from "./pages/Landing";
+import TrialAnalisis from "./pages/TrialAnalisis";
 import Overview from "./pages/Overview";
 import Reportes from "./pages/Reportes";
 import Conexiones from "./pages/Conexiones";
@@ -41,6 +43,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/invite/:token" element={<InviteAccept />} />
+        <Route path="/prueba" element={<Landing />} />
+        <Route path="/prueba/analisis" element={<TrialAnalisis />} />
         <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
           <Route index element={<HomeRedirect />} />
           <Route path="clientes" element={<RequireSuperadmin><Clientes /></RequireSuperadmin>} />
