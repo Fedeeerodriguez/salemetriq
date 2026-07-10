@@ -47,4 +47,10 @@ def root() -> dict[str, str]:
 @app.on_event("startup")
 def _on_startup() -> None:
     fuente = "Apify" if settings.APIFY_TOKEN else "MOCK (sin APIFY_TOKEN)"
+    from .services import supabase_client
+    if supabase_client.USE_FAKE:
+        from .services.auth import hash_password
+        from .services.fake_db import seed
+        seed(hash_password)
+        logger.info("DEV MODE — admin sembrado: admin@igprospector.com / Admin1234")
     logger.info("IG Prospector backend arrancado — fuente de datos: %s", fuente)

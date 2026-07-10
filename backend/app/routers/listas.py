@@ -77,7 +77,7 @@ def detalle(lista_id: str, user: dict = Depends(get_current_user)) -> dict:
     items = []
     for x in lp:
         items.append({**perfiles_map.get(x["username"], {"username": x["username"]}),
-                      "estado_contacto": x["estado_contacto"], "nota": x.get("nota"),
+                      "estado_contacto": x.get("estado_contacto", "nuevo"), "nota": x.get("nota"),
                       "lp_id": x["id"]})
     return {"lista": lista[0], "perfiles": items}
 
@@ -85,7 +85,7 @@ def detalle(lista_id: str, user: dict = Depends(get_current_user)) -> dict:
 @router.post("/{lista_id}/perfiles")
 def agregar(lista_id: str, body: AgregarPerfiles, user: dict = Depends(get_current_user)) -> dict:
     sb = get_supabase_admin()
-    filas = [{"lista_id": lista_id, "username": u.lower()} for u in body.usernames if u]
+    filas = [{"lista_id": lista_id, "username": u.lower(), "estado_contacto": "nuevo"} for u in body.usernames if u]
     if not filas:
         return {"agregados": 0}
     # upsert ignora los que ya estaban (unique lista_id+username)

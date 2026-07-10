@@ -1,4 +1,8 @@
-"""Cliente Supabase singleton (anon + service_role)."""
+"""Cliente Supabase singleton (anon + service_role).
+
+Si no hay SUPABASE_SERVICE_ROLE_KEY, cae a un fake EN MEMORIA (dev/testing local)
+— ver services/fake_db.py. Así el flujo completo corre sin un proyecto real.
+"""
 import logging
 
 from supabase import Client, create_client
@@ -7,8 +11,11 @@ from ..config import settings
 
 logger = logging.getLogger(__name__)
 
+# Modo dev: sin service_role key → base en memoria.
+USE_FAKE = not settings.SUPABASE_SERVICE_ROLE_KEY
+
 _client: Client | None = None
-_admin_client: Client | None = None
+_admin_client = None
 
 
 def get_supabase() -> Client:
@@ -28,6 +35,14 @@ def get_supabase_admin() -> Client:
     """
     global _admin_client
     if _admin_client is None:
+        if USE_FAKE:
+            from .fake_db import FakeSupabase
+            logger.warning(
+                "DEV MODE: sin SUPABASE_SERVICE_ROLE_KEY → usando base EN MEMORIA "
+                "(fake_db). Los datos NO se persisten. Solo para desarrollo/testing."
+            )
+            _admin_client = FakeSupabase()
+            return _admin_client
         key = settings.SUPABASE_SERVICE_ROLE_KEY
         if not key:
             logger.error(

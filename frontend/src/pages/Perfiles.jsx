@@ -13,6 +13,11 @@ function scoreColor(s) {
   if (s >= 40) return "text-gold-400 bg-gold-500/10";
   return "text-txt-mute bg-ink-raised";
 }
+const IA = {
+  si: { label: "IA: sí", cls: "text-pos bg-pos/10" },
+  dudoso: { label: "IA: dudoso", cls: "text-gold-400 bg-gold-500/10" },
+  no: { label: "IA: no", cls: "text-neg bg-neg/10" },
+};
 
 export default function Perfiles() {
   const [sp] = useSearchParams();
@@ -141,7 +146,12 @@ export default function Perfiles() {
                 <tr key={p.username} className="border-b border-white/[0.04] hover:bg-ink-hover/50">
                   <td className="p-3"><input type="checkbox" checked={sel.has(p.username)} onChange={() => toggle(p.username)} /></td>
                   <td className="p-3">
-                    <div className="font-medium text-txt">@{p.username}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-txt">@{p.username}</span>
+                      {p.ia_veredicto && IA[p.ia_veredicto] && (
+                        <span className={`pill ${IA[p.ia_veredicto].cls}`} title={p.ia_motivo || ""}>{IA[p.ia_veredicto].label}</span>
+                      )}
+                    </div>
                     <div className="text-txt-mute text-[12px] truncate max-w-[280px]">{p.full_name || p.bio || "—"}</div>
                   </td>
                   <td className="p-3 text-right tnum text-txt-soft">{fmt(p.followers)}</td>

@@ -5,10 +5,13 @@ en la DB para que el frontend muestre el progreso (pendiente → corriendo → o
 """
 import logging
 
-from . import collector, dedup, scoring
+from . import clasificador_ia, collector, dedup, scoring
 from .supabase_client import get_supabase_admin
 
 logger = logging.getLogger(__name__)
+
+# Tope de perfiles a clasificar con IA por job (control de costo/latencia).
+_MAX_IA = 40
 
 
 def _nicho(sb, nicho_id: str | None) -> dict | None:
@@ -42,7 +45,15 @@ def run_job(job_id: str) -> None:
             s = scoring.score(p, nicho, job.get("query", ""))
             if s >= min_score and _pasa_filtros(p, filtros):
                 scores[p["username"]] = s
+                p["score_nicho"] = s  # que el clasificador vea el score
                 elegidos.append(p)
+
+        # Fase 4 — clasificador IA (si el nicho lo activa). Prioriza mayor score.
+        if nicho and nicho.get("usa_ia") and elegidos:
+            for p in sorted(elegidos, key=lambda x: x.get("score_nicho", 0), reverse=True)[:_MAX_IA]:
+                res_ia = clasificador_ia.clasificar(p, nicho)
+                if res_ia:
+                    p["ia_veredicto"], p["ia_motivo"] = res_ia
 
         total, nuevos = dedup.upsert_perfiles(elegidos, job.get("nicho_id"), scores)
 

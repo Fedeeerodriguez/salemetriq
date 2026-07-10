@@ -47,6 +47,9 @@ def crear_busqueda(
         "nicho_id": body.nicho_id,
         "filtros": body.filtros.model_dump(exclude_none=True),
         "estado": "pendiente",
+        "total_encontrados": 0,
+        "total_nuevos": 0,
+        "error_msg": None,
         "created_by": user["id"],
     }
     res = sb.table("scrape_jobs").insert(payload).execute()
