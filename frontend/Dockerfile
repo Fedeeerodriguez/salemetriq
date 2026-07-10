@@ -16,7 +16,7 @@ RUN npm run build
 FROM nginx:alpine
 # Host interno del servicio backend en EasyPanel. Sobreescribible por env.
 # Formato habitual: http://<proyecto>_<servicio>:8000
-ENV BACKEND_URL=http://salemetriq_api:8000
+ENV BACKEND_URL=http://ig-prospector_api:8000
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80

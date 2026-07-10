@@ -1,26 +1,31 @@
 -- ============================================================================
--- SALEMETRIQ — Schema inicial (Supabase / Postgres)
--- Sales telemetry: equipos, usuarios, llamadas de closers, resúmenes de setters,
--- pipeline de leads/deals, análisis IA y métricas agregadas.
+-- IG PROSPECTOR — Schema inicial (Supabase / Postgres)
+-- Buscar perfiles de Instagram por NICHO de forma masiva, deduplicarlos,
+-- puntuarlos por afinidad al nicho y agruparlos en LISTAS para outreach manual.
+--
+-- La app NO envía mensajes ni reacciona: solo enlista, clasifica y exporta.
 --
 -- Ejecutar en el SQL Editor de Supabase (o vía `apply_migration`).
 -- Idempotente: usa IF NOT EXISTS y enums con guardas.
 -- ============================================================================
 
 create extension if not exists "uuid-ossp";
-create extension if not exists vector;      -- embeddings de transcripts (Fase 3)
 
 -- ── Enums ────────────────────────────────────────────────────────────────────
 do $$ begin
-  create type user_rol as enum ('admin', 'manager', 'closer', 'setter');
+  create type user_rol as enum ('admin', 'operador');
 exception when duplicate_object then null; end $$;
 
 do $$ begin
-  create type call_outcome as enum ('cerro', 'no_cerro', 'seguimiento', 'no_show');
+  create type job_angulo as enum ('hashtag', 'keyword', 'followers', 'ubicacion');
 exception when duplicate_object then null; end $$;
 
 do $$ begin
-  create type summary_tipo as enum ('texto', 'audio');
+  create type job_estado as enum ('pendiente', 'corriendo', 'ok', 'error');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type contacto_estado as enum ('nuevo', 'contactado', 'respondio', 'descartado');
 exception when duplicate_object then null; end $$;
 
 -- ── Función utilitaria: updated_at automático ────────────────────────────────
@@ -32,133 +37,122 @@ begin
 end;
 $$ language plpgsql;
 
--- ── teams ────────────────────────────────────────────────────────────────────
-create table if not exists teams (
-  id          uuid primary key default uuid_generate_v4(),
-  nombre      text not null,
-  created_at  timestamptz not null default now()
-);
-
 -- ── users ────────────────────────────────────────────────────────────────────
 -- Auth propia (JWT del backend). password_hash con bcrypt.
 create table if not exists users (
   id            uuid primary key default uuid_generate_v4(),
-  team_id       uuid references teams(id) on delete set null,
   email         text unique not null,
   password_hash text not null,
   nombre        text,
-  rol           user_rol not null default 'closer',
+  rol           user_rol not null default 'operador',
   activo        boolean not null default true,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
 create index if not exists idx_users_rol on users(rol);
-create index if not exists idx_users_team on users(team_id);
 drop trigger if exists trg_users_updated on users;
 create trigger trg_users_updated before update on users
   for each row execute function set_updated_at();
 
--- ── leads (pipeline) ─────────────────────────────────────────────────────────
-create table if not exists leads (
-  id           uuid primary key default uuid_generate_v4(),
-  team_id      uuid references teams(id) on delete set null,
-  nombre       text,
-  contacto     text,                       -- email / teléfono
-  origen       text,                        -- fuente del lead
-  setter_id    uuid references users(id) on delete set null,
-  closer_id    uuid references users(id) on delete set null,
-  estado       text default 'nuevo',        -- nuevo | agendado | en_proceso | ganado | perdido
-  created_at   timestamptz not null default now(),
-  updated_at   timestamptz not null default now()
+-- ── nichos ───────────────────────────────────────────────────────────────────
+-- Definición reutilizable de un nicho: "médicos" con sus keywords, hashtags y
+-- cuentas semilla (para buscar entre sus seguidores). usa_ia activa el
+-- clasificador de Claude (Fase 4).
+create table if not exists nichos (
+  id              uuid primary key default uuid_generate_v4(),
+  nombre          text not null,
+  descripcion     text,
+  keywords        text[] not null default '{}',   -- palabras esperadas en la bio
+  hashtags        text[] not null default '{}',   -- sin el #
+  cuentas_semilla text[] not null default '{}',   -- usernames semilla
+  usa_ia          boolean not null default false,
+  created_by      uuid references users(id) on delete set null,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
 );
-create index if not exists idx_leads_setter on leads(setter_id);
-create index if not exists idx_leads_closer on leads(closer_id);
-drop trigger if exists trg_leads_updated on leads;
-create trigger trg_leads_updated before update on leads
+create index if not exists idx_nichos_nombre on nichos(nombre);
+drop trigger if exists trg_nichos_updated on nichos;
+create trigger trg_nichos_updated before update on nichos
   for each row execute function set_updated_at();
 
--- ── calls (llamadas de closers) ──────────────────────────────────────────────
-create table if not exists calls (
-  id            uuid primary key default uuid_generate_v4(),
-  closer_id     uuid references users(id) on delete set null,
-  lead_id       uuid references leads(id) on delete set null,
-  fecha         timestamptz not null default now(),
-  duracion_seg  integer,
-  outcome       call_outcome,
-  deal_value    numeric(14,2) default 0,
-  transcript    text not null,
-  created_at    timestamptz not null default now()
+-- ── scrape_jobs ──────────────────────────────────────────────────────────────
+-- Una búsqueda encolada. El backend la corre en background (Apify) y va
+-- actualizando estado + total_encontrados.
+create table if not exists scrape_jobs (
+  id               uuid primary key default uuid_generate_v4(),
+  nicho_id         uuid references nichos(id) on delete set null,
+  angulo           job_angulo not null,
+  query            text not null,               -- hashtag, keyword, o @cuenta
+  filtros          jsonb not null default '{}',
+  estado           job_estado not null default 'pendiente',
+  total_encontrados integer not null default 0,
+  total_nuevos     integer not null default 0,
+  error_msg        text,
+  created_by       uuid references users(id) on delete set null,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
 );
-create index if not exists idx_calls_closer on calls(closer_id);
-create index if not exists idx_calls_fecha on calls(fecha desc);
-create index if not exists idx_calls_outcome on calls(outcome);
+create index if not exists idx_jobs_estado on scrape_jobs(estado);
+create index if not exists idx_jobs_created on scrape_jobs(created_at desc);
+drop trigger if exists trg_jobs_updated on scrape_jobs;
+create trigger trg_jobs_updated before update on scrape_jobs
+  for each row execute function set_updated_at();
 
--- ── setter_summaries (resúmenes de setters, audio/texto) ─────────────────────
-create table if not exists setter_summaries (
-  id                  uuid primary key default uuid_generate_v4(),
-  setter_id           uuid references users(id) on delete set null,
-  lead_id             uuid references leads(id) on delete set null,
-  fecha               timestamptz not null default now(),
-  tipo                summary_tipo not null default 'texto',
-  texto               text,
-  audio_url           text,
-  lead_qualification  text,                 -- calificación cualitativa del lead
-  agendado            boolean default false,
-  created_at          timestamptz not null default now()
+-- ── ig_profiles ──────────────────────────────────────────────────────────────
+-- Perfil público de IG. Dedup por username (idempotente): re-buscar actualiza
+-- datos y scraped_at, no duplica.
+create table if not exists ig_profiles (
+  username        text primary key,
+  full_name       text,
+  bio             text,
+  followers       integer,
+  following       integer,
+  posts           integer,
+  is_business     boolean,
+  category        text,
+  external_url    text,
+  email_publico   text,
+  telefono_publico text,
+  profile_pic_url text,
+  ig_url          text,
+  nicho_id        uuid references nichos(id) on delete set null,
+  score_nicho     integer not null default 0,   -- 0..100 afinidad al nicho
+  ia_veredicto    text,                          -- (Fase 4) 'si' | 'no' | 'dudoso'
+  ia_motivo       text,
+  scraped_at      timestamptz not null default now(),
+  created_at      timestamptz not null default now()
 );
-create index if not exists idx_summaries_setter on setter_summaries(setter_id);
-create index if not exists idx_summaries_fecha on setter_summaries(fecha desc);
+create index if not exists idx_profiles_nicho on ig_profiles(nicho_id);
+create index if not exists idx_profiles_score on ig_profiles(score_nicho desc);
+create index if not exists idx_profiles_followers on ig_profiles(followers desc);
 
--- ── analysis_runs (salida del analista IA — Fase 3) ──────────────────────────
--- Guarda el resultado del análisis de una call o de un summary.
-create table if not exists analysis_runs (
-  id            uuid primary key default uuid_generate_v4(),
-  target_tipo   text not null,              -- 'call' | 'setter_summary'
-  target_id     uuid not null,
-  modelo        text,                        -- modelo IA usado
-  score         numeric(5,2),                -- 0..100
-  sentiment     text,
-  objeciones    jsonb,                       -- lista de objeciones detectadas
-  tags          text[],
-  resumen       text,
-  raw           jsonb,                       -- salida cruda del modelo
-  created_at    timestamptz not null default now()
-);
-create index if not exists idx_analysis_target on analysis_runs(target_tipo, target_id);
-
--- ── transcript_chunks (vector store para búsqueda semántica — Fase 3) ────────
--- text-embedding-3-small → 1536 dims.
-create table if not exists transcript_chunks (
+-- ── listas ───────────────────────────────────────────────────────────────────
+create table if not exists listas (
   id          uuid primary key default uuid_generate_v4(),
-  call_id     uuid references calls(id) on delete cascade,
-  chunk       text not null,
-  embedding   vector(1536),
-  created_at  timestamptz not null default now()
+  nombre      text not null,
+  descripcion text,
+  owner       uuid references users(id) on delete set null,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
 );
-create index if not exists idx_chunks_call on transcript_chunks(call_id);
--- Índice ANN (crear cuando haya volumen de datos):
--- create index on transcript_chunks using ivfflat (embedding vector_cosine_ops) with (lists = 100);
+drop trigger if exists trg_listas_updated on listas;
+create trigger trg_listas_updated before update on listas
+  for each row execute function set_updated_at();
 
--- ── metrics_daily (agregados pre-calculados — Fase 3) ────────────────────────
-create table if not exists metrics_daily (
-  id            uuid primary key default uuid_generate_v4(),
-  fecha         date not null,
-  user_id       uuid references users(id) on delete cascade,
-  rol           user_rol,
-  llamadas      integer default 0,
-  cerradas      integer default 0,
-  close_rate    numeric(5,2) default 0,
-  revenue       numeric(14,2) default 0,
-  agendados     integer default 0,
-  set_rate      numeric(5,2) default 0,
-  score_prom    numeric(5,2),
-  created_at    timestamptz not null default now(),
-  unique (fecha, user_id)
+-- ── lista_perfiles (N:M lista ↔ perfil, con estado de follow-up manual) ──────
+create table if not exists lista_perfiles (
+  id              uuid primary key default uuid_generate_v4(),
+  lista_id        uuid not null references listas(id) on delete cascade,
+  username        text not null references ig_profiles(username) on delete cascade,
+  estado_contacto contacto_estado not null default 'nuevo',
+  nota            text,
+  created_at      timestamptz not null default now(),
+  unique (lista_id, username)
 );
-create index if not exists idx_metrics_fecha on metrics_daily(fecha desc);
+create index if not exists idx_lp_lista on lista_perfiles(lista_id);
+create index if not exists idx_lp_username on lista_perfiles(username);
 
 -- ============================================================================
--- RLS — se activa en un archivo aparte (db/rls.sql) una vez definido cómo se
--- mapean los usuarios de la app a auth.uid() de Supabase. Por ahora el backend
--- accede con service_role (saltea RLS).
+-- El backend accede con service_role (saltea RLS). Activar RLS en un archivo
+-- aparte si en el futuro el frontend pega directo a Supabase.
 -- ============================================================================

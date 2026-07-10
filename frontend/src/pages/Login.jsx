@@ -1,11 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles } from "lucide-react";
-import SalemetriqLogo from "../components/SalemetriqLogo";
+import IgpLogo from "../components/IgpLogo";
 import { login } from "../utils/auth";
-
-// Credenciales del usuario demo (workspace demo, aislado de los datos reales).
-const DEMO = { email: "demo@salemetriq.com", password: "Demo2026!" };
 
 export default function Login() {
   const navigate = useNavigate();
@@ -14,12 +10,13 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function ingresar(mail, pass) {
+  async function handleSubmit(e) {
+    e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      const user = await login(mail, pass);
-      navigate(user?.is_superadmin ? "/clientes" : "/overview", { replace: true });
+      await login(email, password);
+      navigate("/buscar", { replace: true });
     } catch (err) {
       setError(err.response?.data?.detail || "No se pudo iniciar sesión");
     } finally {
@@ -27,26 +24,14 @@ export default function Login() {
     }
   }
 
-  function handleSubmit(e) {
-    e.preventDefault();
-    ingresar(email, password);
-  }
-
-  function entrarDemo() {
-    // Autocompleta los campos (para que se vean) y entra directo.
-    setEmail(DEMO.email);
-    setPassword(DEMO.password);
-    ingresar(DEMO.email, DEMO.password);
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-ink px-4">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center gap-4 mb-8">
-          <SalemetriqLogo size={48} />
+          <IgpLogo size={48} />
           <div className="text-center">
-            <div className="font-brand text-xl text-txt">SALEMETRIQ</div>
-            <div className="text-[11px] text-txt-mute uppercase tracking-[0.22em] mt-1">Sales Telemetry</div>
+            <div className="font-brand text-xl text-txt">IG&nbsp;PROSPECTOR</div>
+            <div className="text-[11px] text-txt-mute uppercase tracking-[0.22em] mt-1">Prospección por nicho</div>
           </div>
         </div>
 
@@ -69,21 +54,8 @@ export default function Login() {
           <button type="submit" className="btn-primary" disabled={loading}>
             {loading ? "Entrando…" : "Entrar"}
           </button>
-
-          {/* Acceso demo — autocompleta y entra con el usuario demo */}
-          <div className="flex items-center gap-3 my-1">
-            <span className="h-px flex-1 bg-ink-line" />
-            <span className="text-[11px] text-txt-mute uppercase tracking-[0.14em]">o</span>
-            <span className="h-px flex-1 bg-ink-line" />
-          </div>
-          <button
-            type="button" onClick={entrarDemo} disabled={loading}
-            className="btn-ghost flex items-center justify-center gap-2 text-[13.5px]"
-          >
-            <Sparkles size={15} className="text-accent" /> Entrar como usuario demo
-          </button>
-          <p className="text-[11.5px] text-txt-mute text-center -mt-1">
-            Explorá la plataforma con datos de ejemplo, sin registrarte.
+          <p className="text-[11.5px] text-txt-mute text-center">
+            Solo lista y exporta perfiles públicos. No envía mensajes ni reacciona.
           </p>
         </form>
       </div>

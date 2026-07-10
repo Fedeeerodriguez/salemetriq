@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { User, Mail, Shield, Lock, Check, Loader2, Plug } from "lucide-react";
+import { User, Mail, Shield, Lock, Check, Loader2 } from "lucide-react";
 import { getUser, updateMe } from "../utils/auth";
-import Conexiones from "./Conexiones";
 
-const ROL_LABEL = { admin: "Owner", closer: "Closer", setter: "Setter", superadmin: "Plataforma" };
+const ROL_LABEL = { admin: "Admin", operador: "Operador" };
 
 export default function MiPerfil() {
   const [me, setMe] = useState(getUser());
@@ -15,7 +14,6 @@ export default function MiPerfil() {
   const [ok, setOk] = useState("");
   const [err, setErr] = useState("");
 
-  const rol = me?.is_superadmin ? "superadmin" : me?.rol;
   const inicial = (me?.nombre || me?.email || "U").slice(0, 1).toUpperCase();
   const cambiaPass = Boolean(pNueva || pActual || pRepite);
 
@@ -48,8 +46,7 @@ export default function MiPerfil() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-3xl">
-      {/* Header */}
+    <div className="flex flex-col gap-6 max-w-2xl">
       <div className="card liquid p-6 flex items-center gap-5">
         <div className="w-16 h-16 rounded-2xl bg-iris-500/20 text-iris-300 grid place-items-center text-[26px] font-display font-semibold shrink-0 ring-1 ring-iris-500/30">
           {inicial}
@@ -58,14 +55,13 @@ export default function MiPerfil() {
           <h1 className="font-display text-[24px] font-semibold text-txt truncate">{me?.nombre || me?.email}</h1>
           <div className="flex items-center gap-2 mt-1">
             <span className="pill text-iris-400 bg-iris-500/12 flex items-center gap-1">
-              <Shield size={11} /> {ROL_LABEL[rol] || rol}
+              <Shield size={11} /> {ROL_LABEL[me?.rol] || me?.rol}
             </span>
             <span className="text-[13px] text-txt-mute truncate">{me?.email}</span>
           </div>
         </div>
       </div>
 
-      {/* Datos del perfil */}
       <form onSubmit={guardar} className="card p-6 flex flex-col gap-5">
         <div className="flex items-center gap-2">
           <User size={16} className="text-accent" />
@@ -80,10 +76,8 @@ export default function MiPerfil() {
         <div className="flex flex-col gap-1.5">
           <label className="label flex items-center gap-1.5"><Mail size={12} /> Email</label>
           <input className="input opacity-60 cursor-not-allowed" value={me?.email || ""} disabled />
-          <span className="text-[11.5px] text-txt-mute">El email no se puede cambiar. Pedíselo a tu admin si hace falta.</span>
         </div>
 
-        {/* Cambio de contraseña */}
         <div className="pt-2 border-t border-white/[0.06] flex flex-col gap-4">
           <div className="flex items-center gap-2">
             <Lock size={14} className="text-txt-soft" />
@@ -107,15 +101,6 @@ export default function MiPerfil() {
           {busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Guardar cambios
         </button>
       </form>
-
-      {/* Conexiones */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-2">
-          <Plug size={16} className="text-accent" />
-          <span className="label text-accent">Conexiones</span>
-        </div>
-        <Conexiones />
-      </div>
     </div>
   );
 }

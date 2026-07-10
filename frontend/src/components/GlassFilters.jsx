@@ -2,9 +2,6 @@
  * GlassFilters — filtros SVG de refracción para el efecto Liquid Glass.
  * Se montan una vez (ocultos) y se referencian desde CSS con
  * `backdrop-filter: url(#liquid-glass)` (solo Chromium; el resto degrada a blur).
- *
- * feTurbulence genera ruido fractal suave; feDisplacementMap lo usa para
- * desplazar los píxeles del backdrop → distorsión tipo vidrio curvo.
  */
 export default function GlassFilters() {
   return (

@@ -4,18 +4,11 @@
  */
 import api from "./api";
 
-const TOKEN_KEY = "smq_token";
-const USER_KEY = "smq_user";
+const TOKEN_KEY = "igp_token";
+const USER_KEY = "igp_user";
 
 export async function login(email, password) {
   const { data } = await api.post("/auth/login", { email, password });
-  localStorage.setItem(TOKEN_KEY, data.access_token);
-  localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-  return data.user;
-}
-
-export async function acceptInvite(token, password) {
-  const { data } = await api.post("/auth/accept-invite", { token, password });
   localStorage.setItem(TOKEN_KEY, data.access_token);
   localStorage.setItem(USER_KEY, JSON.stringify(data.user));
   return data.user;
@@ -49,20 +42,6 @@ export function isAuthenticated() {
   return Boolean(getToken());
 }
 
-export function hasRole(...roles) {
-  const u = getUser();
-  return u && roles.includes(u.rol);
-}
-
-export function isSuperadmin() {
-  return Boolean(getUser()?.is_superadmin);
-}
-
 export function isAdmin() {
-  const u = getUser();
-  return Boolean(u && u.rol === "admin" && u.team_id);
-}
-
-export function getWorkspace() {
-  return getUser()?.workspace || null;
+  return getUser()?.rol === "admin";
 }

@@ -1,7 +1,7 @@
-"""FastAPI app del backend de SALEMETRIQ — sales telemetry.
+"""FastAPI app del backend de IG PROSPECTOR.
 
-Ingesta de transcripts (closers) y resúmenes (setters), motor de métricas y
-analista IA sobre Supabase.
+Buscar perfiles de Instagram por nicho (fuente: Apify), deduplicarlos, puntuarlos
+por afinidad y agruparlos en listas para outreach manual. NO envía ni reacciona.
 """
 import logging
 
@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .routers import auth as auth_router
-from .routers import closers, setters, ingesta, metricas, grabaciones, calls, users, workspace, admin, telegram, fathom, reportes, conexiones, coaching, scripts, leadmagnet
+from .routers import busqueda, listas, nichos, perfiles
 
 logging.basicConfig(
     level=logging.INFO,
@@ -19,9 +19,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="SALEMETRIQ — Backend",
+    title="IG Prospector — Backend",
     version="0.1.0",
-    description="Sales telemetry: ingesta de llamadas, métricas y analista IA sobre Supabase.",
+    description="Búsqueda de perfiles de Instagram por nicho → listas para outreach manual.",
 )
 
 app.add_middleware(
@@ -29,33 +29,22 @@ app.add_middleware(
     allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Ingest-Key"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 app.include_router(auth_router.router)
-app.include_router(closers.router)
-app.include_router(setters.router)
-app.include_router(ingesta.router)
-app.include_router(metricas.router)
-app.include_router(grabaciones.router)
-app.include_router(calls.router)
-app.include_router(users.router)
-app.include_router(workspace.router)
-app.include_router(admin.router)
-app.include_router(telegram.router)
-app.include_router(fathom.router)
-app.include_router(reportes.router)
-app.include_router(conexiones.router)
-app.include_router(coaching.router)
-app.include_router(scripts.router)
-app.include_router(leadmagnet.router)
+app.include_router(nichos.router)
+app.include_router(busqueda.router)
+app.include_router(perfiles.router)
+app.include_router(listas.router)
 
 
 @app.get("/")
 def root() -> dict[str, str]:
-    return {"service": "salemetriq-backend", "status": "running"}
+    return {"service": "ig-prospector-backend", "status": "running"}
 
 
 @app.on_event("startup")
 def _on_startup() -> None:
-    logger.info("SALEMETRIQ backend arrancado — CORS origins: %s", settings.cors_origins_list)
+    fuente = "Apify" if settings.APIFY_TOKEN else "MOCK (sin APIFY_TOKEN)"
+    logger.info("IG Prospector backend arrancado — fuente de datos: %s", fuente)

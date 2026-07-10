@@ -13,10 +13,10 @@ services:
     image: node:20-alpine
     working_dir: /app
     ports:
-      - "5180:5180"
+      - "5182:5182"
     depends_on:
       - backend
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    command: sh -c "npm install && npm run dev -- --host --port 5180"
+    command: sh -c "npm install && npm run dev -- --host --port 5182"

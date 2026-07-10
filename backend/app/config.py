@@ -7,44 +7,30 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 logger = logging.getLogger(__name__)
 
 # Fallback solo para no romper el arranque en dev — definir JWT_SECRET en el entorno.
-_DEFAULT_JWT_SECRET = "salemetriq_jwt_secret_change_in_production_2026"
+_DEFAULT_JWT_SECRET = "igprospector_jwt_secret_change_in_production_2026"
 
 
 class Settings(BaseSettings):
-    # ── Supabase ──────────────────────────────────────────────────────────────
+    # ── Supabase (base de datos) ──────────────────────────────────────────────
     SUPABASE_URL: str = "https://placeholder.supabase.co"
     SUPABASE_ANON_KEY: str = ""
     # service_role key — saltea RLS, solo el backend la conoce.
     SUPABASE_SERVICE_ROLE_KEY: str = ""
 
-    # ── Anthropic (Analista IA) ───────────────────────────────────────────────
-    # Para análisis de llamadas conviene Sonnet (mejor criterio); Haiku es la
-    # opción barata (claude-haiku-4-5). Se puede cambiar por env sin tocar código.
+    # ── Apify (fuente de scraping — plan free, sin arriesgar tu cuenta) ────────
+    APIFY_TOKEN: str = ""
+    # Actor por defecto para búsquedas por hashtag/keyword/followers.
+    APIFY_ACTOR: str = "apify/instagram-scraper"
+    # Techo duro de resultados por búsqueda (para no quemar el crédito free).
+    APIFY_MAX_RESULTS: int = 200
+
+    # ── Anthropic (clasificador de nicho — Fase 4, opcional) ──────────────────
     ANTHROPIC_API_KEY: str = ""
-    ANTHROPIC_MODEL: str = "claude-sonnet-5"
+    ANTHROPIC_MODEL: str = "claude-haiku-4-5"
 
-    # ── OpenAI (embeddings del vector store de transcripts) ───────────────────
-    OPENAI_API_KEY: str = ""
-    OPENAI_EMBED_MODEL: str = "text-embedding-3-small"
-    OPENAI_CHAT_MODEL: str = "gpt-4.1-mini"
-
-    # ── Ingesta externa ───────────────────────────────────────────────────────
-    INGEST_INTERNAL_KEY: str = ""
-
-    # ── Conexiones (Fathom por usuario) ───────────────────────────────────────
-    # URL pública del backend — Fathom necesita un destino HTTPS accesible para
-    # registrar el webhook. Ej: https://mi-backend.easypanel.host
-    PUBLIC_BACKEND_URL: str = ""
-    # Clave para cifrar credenciales de terceros (API key de Fathom) en reposo.
+    # ── Cifrado de credenciales de terceros en reposo (Fernet) ────────────────
     # Si no se define, se deriva de JWT_SECRET (menos ideal, pero funcional).
-    SMQ_ENCRYPTION_KEY: str = ""
-
-    # ── Telegram (setters envían su resumen de setting por el bot) ────────────
-    # Token del bot de @BotFather. Sin esto, la Fase A queda deshabilitada.
-    TELEGRAM_BOT_TOKEN: str = ""
-    # Secret que Telegram manda en el header X-Telegram-Bot-Api-Secret-Token
-    # al llamar al webhook — evita que cualquiera postee al endpoint.
-    TELEGRAM_WEBHOOK_SECRET: str = ""
+    IGP_ENCRYPTION_KEY: str = ""
 
     # ── Auth (JWT) ────────────────────────────────────────────────────────────
     JWT_SECRET: str = _DEFAULT_JWT_SECRET
@@ -52,7 +38,7 @@ class Settings(BaseSettings):
     JWT_EXPIRATION_HOURS: int = 8
 
     # ── CORS ──────────────────────────────────────────────────────────────────
-    CORS_ORIGINS: str = "http://localhost:5180,http://localhost:5173"
+    CORS_ORIGINS: str = "http://localhost:5182,http://localhost:5173"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -64,13 +50,13 @@ class Settings(BaseSettings):
 settings = Settings()
 
 if settings.JWT_SECRET == _DEFAULT_JWT_SECRET:
-    # El secret por defecto es público (está en el repo): con él, cualquiera puede
-    # firmar un JWT de admin/superadmin. No arrancamos con el default salvo que se
-    # pida explícitamente para desarrollo (SMQ_ALLOW_DEFAULT_SECRET=1).
-    if os.environ.get("SMQ_ALLOW_DEFAULT_SECRET") == "1":
+    # El secret por defecto es público (está en el repo): con él cualquiera puede
+    # firmar un JWT de admin. No arrancamos con el default salvo que se pida
+    # explícitamente para desarrollo (IGP_ALLOW_DEFAULT_SECRET=1).
+    if os.environ.get("IGP_ALLOW_DEFAULT_SECRET") == "1":
         logger.warning("SEGURIDAD: usando JWT_SECRET por defecto (solo dev). NO usar en producción.")
     else:
         raise RuntimeError(
             "SEGURIDAD: JWT_SECRET no está definido. Definí JWT_SECRET en el entorno "
-            "(o SMQ_ALLOW_DEFAULT_SECRET=1 solo para desarrollo local)."
+            "(o IGP_ALLOW_DEFAULT_SECRET=1 solo para desarrollo local)."
         )
