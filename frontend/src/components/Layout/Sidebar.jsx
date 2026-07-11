@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutGrid, Phone, Users, Headphones, Mic, FileText, UserCog, Building2,
   Network, BarChart3, Plug, GraduationCap, Menu, ChevronDown,
+  Search, Target, ListChecks, Instagram,
 } from "lucide-react";
 import SalemetriqLogo from "../SalemetriqLogo";
 import TelemetryPulse from "../TelemetryPulse";
@@ -41,6 +42,17 @@ const GRUPOS = [
     ],
   },
 ];
+
+/* Prospección de Instagram — herramienta interna, solo superadmin. */
+const GRUPO_IGP = {
+  label: "Prospección IG",
+  items: [
+    { to: "/prospeccion/buscar", label: "Buscar", icon: Search },
+    { to: "/prospeccion/perfiles", label: "Perfiles", icon: Instagram },
+    { to: "/prospeccion/nichos", label: "Nichos", icon: Target },
+    { to: "/prospeccion/listas", label: "Listas", icon: ListChecks },
+  ],
+};
 
 const LS_COLLAPSED = "smq_sidebar_collapsed";
 const LS_GRUPOS = "smq_sidebar_groups";
@@ -82,7 +94,7 @@ export default function Sidebar() {
 
   // Grupos según rol.
   const grupos = superadmin
-    ? [{ label: "Plataforma", items: [{ to: "/clientes", label: "Clientes", icon: Building2 }] }]
+    ? [{ label: "Plataforma", items: [{ to: "/clientes", label: "Clientes", icon: Building2 }] }, GRUPO_IGP]
     : GRUPOS.map((g) =>
         g.label === "Configuración" && isAdmin()
           ? { ...g, items: [...g.items, { to: "/usuarios", label: "Usuarios", icon: UserCog }] }

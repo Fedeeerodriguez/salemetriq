@@ -19,6 +19,11 @@ import ScriptGenerator from "./pages/ScriptGenerator";
 import Usuarios from "./pages/Usuarios";
 import Clientes from "./pages/Clientes";
 import Equipo from "./pages/Equipo";
+import IgpBuscar from "./pages/igp/Buscar";
+import IgpPerfiles from "./pages/igp/Perfiles";
+import IgpNichos from "./pages/igp/Nichos";
+import IgpListas from "./pages/igp/Listas";
+import IgpListaDetalle from "./pages/igp/ListaDetalle";
 import { isAuthenticated, isSuperadmin, isAdmin } from "./utils/auth";
 
 function RequireAuth({ children }) {
@@ -48,6 +53,12 @@ export default function App() {
         <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
           <Route index element={<HomeRedirect />} />
           <Route path="clientes" element={<RequireSuperadmin><Clientes /></RequireSuperadmin>} />
+          {/* IG Prospector — herramienta interna, solo superadmin */}
+          <Route path="prospeccion/buscar" element={<RequireSuperadmin><IgpBuscar /></RequireSuperadmin>} />
+          <Route path="prospeccion/perfiles" element={<RequireSuperadmin><IgpPerfiles /></RequireSuperadmin>} />
+          <Route path="prospeccion/nichos" element={<RequireSuperadmin><IgpNichos /></RequireSuperadmin>} />
+          <Route path="prospeccion/listas" element={<RequireSuperadmin><IgpListas /></RequireSuperadmin>} />
+          <Route path="prospeccion/listas/:id" element={<RequireSuperadmin><IgpListaDetalle /></RequireSuperadmin>} />
           <Route path="usuarios" element={<RequireAdmin><Usuarios /></RequireAdmin>} />
           <Route path="overview" element={<Overview />} />
           <Route path="calls" element={<Calls />} />
