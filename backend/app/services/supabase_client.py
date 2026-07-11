@@ -6,6 +6,7 @@ Si no hay SUPABASE_SERVICE_ROLE_KEY, cae a un fake EN MEMORIA (dev/testing local
 import logging
 
 from supabase import Client, create_client
+from supabase.lib.client_options import ClientOptions
 
 from ..config import settings
 
@@ -18,11 +19,16 @@ _client: Client | None = None
 _admin_client = None
 
 
+def _opts() -> ClientOptions:
+    """Todas las queries van al schema propio del IG Prospector (igp), no a public."""
+    return ClientOptions(schema=settings.IGP_DB_SCHEMA)
+
+
 def get_supabase() -> Client:
     """Cliente anon — respeta RLS. Para operaciones en nombre del usuario."""
     global _client
     if _client is None:
-        _client = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+        _client = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY, options=_opts())
     return _client
 
 
@@ -51,5 +57,5 @@ def get_supabase_admin() -> Client:
                 "service_role key en el entorno."
             )
             key = settings.SUPABASE_ANON_KEY
-        _admin_client = create_client(settings.SUPABASE_URL, key)
+        _admin_client = create_client(settings.SUPABASE_URL, key, options=_opts())
     return _admin_client

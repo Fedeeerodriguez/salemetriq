@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     SUPABASE_ANON_KEY: str = ""
     # service_role key — saltea RLS, solo el backend la conoce.
     SUPABASE_SERVICE_ROLE_KEY: str = ""
+    # Schema Postgres propio del IG Prospector (aislado del `public` de SALEMETRIQ
+    # cuando comparten el mismo proyecto Supabase). Debe estar EXPUESTO en PostgREST
+    # (Supabase → Settings → API → Exposed schemas).
+    IGP_DB_SCHEMA: str = "igp"
 
     # ── Apify (fuente de scraping — plan free, sin arriesgar tu cuenta) ────────
     APIFY_TOKEN: str = ""
