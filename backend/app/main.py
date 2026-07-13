@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .routers import auth as auth_router
 from .routers import closers, setters, ingesta, metricas, grabaciones, calls, users, workspace, admin, telegram, fathom, reportes, conexiones, coaching, scripts, leadmagnet
+from .igp.routers import ROUTERS as IGP_ROUTERS
 
 logging.basicConfig(
     level=logging.INFO,
@@ -49,6 +50,10 @@ app.include_router(conexiones.router)
 app.include_router(coaching.router)
 app.include_router(scripts.router)
 app.include_router(leadmagnet.router)
+
+# IG Prospector (herramienta interna de leads — solo superadmin, schema `igp`)
+for _r in IGP_ROUTERS:
+    app.include_router(_r)
 
 
 @app.get("/")

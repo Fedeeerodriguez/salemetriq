@@ -31,6 +31,16 @@ class Settings(BaseSettings):
     # ── Ingesta externa ───────────────────────────────────────────────────────
     INGEST_INTERNAL_KEY: str = ""
 
+    # ── IG Prospector (herramienta interna de leads — schema `igp`) ───────────
+    # Vive en su propia "carpeta" (schema Postgres) del mismo proyecto Supabase.
+    IGP_DB_SCHEMA: str = "igp"
+    # Apify = fuente de scraping (plan free). Sin token → modo MOCK.
+    APIFY_TOKEN: str = ""
+    APIFY_ACTOR: str = "apify/instagram-scraper"
+    APIFY_MAX_RESULTS: int = 200
+    # Modelo barato para el clasificador de nicho (yes/no, no necesita Sonnet).
+    IGP_CLASIFICADOR_MODEL: str = "claude-haiku-4-5"
+
     # ── Conexiones (Fathom por usuario) ───────────────────────────────────────
     # URL pública del backend — Fathom necesita un destino HTTPS accesible para
     # registrar el webhook. Ej: https://mi-backend.easypanel.host

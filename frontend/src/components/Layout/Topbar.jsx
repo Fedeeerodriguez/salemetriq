@@ -16,10 +16,15 @@ const TITLES = {
   "/script-generator": "Script Generator",
   "/usuarios": "Usuarios",
   "/clientes": "Clientes",
+  "/prospeccion/buscar": "Prospección · Buscar",
+  "/prospeccion/perfiles": "Prospección · Perfiles",
+  "/prospeccion/nichos": "Prospección · Nichos",
+  "/prospeccion/listas": "Prospección · Listas",
 };
 
 function titleFor(pathname) {
   if (pathname.startsWith("/users/")) return "Perfil";
+  if (pathname.startsWith("/prospeccion/listas/")) return "Prospección · Lista";
   return TITLES[pathname] || "SALEMETRIQ";
 }
 

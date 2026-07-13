@@ -2,6 +2,7 @@
 import logging
 
 from supabase import Client, create_client
+from supabase.lib.client_options import ClientOptions
 
 from ..config import settings
 
@@ -9,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 _client: Client | None = None
 _admin_client: Client | None = None
+_igp_client: Client | None = None
 
 
 def get_supabase() -> Client:
@@ -38,3 +40,18 @@ def get_supabase_admin() -> Client:
             key = settings.SUPABASE_ANON_KEY
         _admin_client = create_client(settings.SUPABASE_URL, key)
     return _admin_client
+
+
+def get_supabase_igp() -> Client:
+    """service_role apuntando al schema `igp` (IG Prospector, herramienta interna).
+
+    Aislado del `public` de SALEMETRIQ aunque comparten el mismo proyecto Supabase.
+    El schema `igp` debe estar expuesto en PostgREST (Settings → API → Exposed schemas).
+    """
+    global _igp_client
+    if _igp_client is None:
+        key = settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_ANON_KEY
+        _igp_client = create_client(
+            settings.SUPABASE_URL, key, options=ClientOptions(schema=settings.IGP_DB_SCHEMA)
+        )
+    return _igp_client
