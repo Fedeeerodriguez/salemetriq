@@ -6,9 +6,17 @@ import api from "../../utils/api";
 const ANGULOS = [
   { id: "hashtag", label: "Hashtag", icon: Hash, ph: "medicos" },
   { id: "keyword", label: "Keyword", icon: Type, ph: "cardiólogo" },
-  { id: "followers", label: "Seguidores de @", icon: AtSign, ph: "sociedadcardiologia" },
+  { id: "followers", label: "Audiencia de @", icon: AtSign, ph: "sociedadcardiologia" },
   { id: "ubicacion", label: "Ubicación", icon: MapPin, ph: "Santa Rosa La Pampa" },
 ];
+
+// Ayuda contextual por ángulo (cómo segmenta cada uno).
+const ANGULO_HELP = {
+  hashtag: "Perfiles que publican con ese hashtag.",
+  keyword: "Perfiles cuyo usuario/nombre coincide con el término.",
+  followers: "Audiencia engaged: quienes comentan los posts de esa cuenta (aprox. de seguidores).",
+  ubicacion: "Perfiles que publican desde esa ubicación.",
+};
 
 export default function Buscar() {
   const navigate = useNavigate();
@@ -103,12 +111,15 @@ export default function Buscar() {
 
         {/* Query */}
         <div>
-          <label className="label">{angulo === "followers" ? "Cuenta (@usuario)" : angulo === "hashtag" ? "Hashtag (sin #)" : "Término"}</label>
+          <label className="label">
+            {angulo === "followers" ? "Cuenta (@usuario)" : angulo === "hashtag" ? "Hashtag (sin #)" : angulo === "ubicacion" ? "Ubicación" : "Término"}
+          </label>
           <div className="relative mt-1.5">
             <AnguloIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-txt-mute" />
             <input className="input pl-9" required value={query} onChange={(e) => setQuery(e.target.value)}
               placeholder={ANGULOS.find((a) => a.id === angulo)?.ph} />
           </div>
+          <p className="text-[12px] text-txt-mute mt-1.5">{ANGULO_HELP[angulo]}</p>
         </div>
 
         {/* Filtros */}

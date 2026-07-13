@@ -1,12 +1,14 @@
 """Fuente de datos: Apify (actor apify/instagram-scraper).
 
 Traduce cada ÁNGULO al input correcto del actor y siempre devuelve PERFILES
-(no posts ni metadata):
+completos (no posts, metadata ni comentarios). Cada ángulo segmenta distinto:
 
   - keyword    → búsqueda de usuarios (searchType=user, resultsType=details) → perfiles directos.
   - hashtag    → posts del tag (directUrl + resultsType=posts) → ownerUsername → enrich a perfil.
-  - ubicacion  → búsqueda de lugar → posts → ownerUsername → enrich a perfil.
-  - followers  → perfil de la cuenta semilla (el actor free no lista followers de forma fiable).
+  - ubicacion  → place search → location_id/slug → posts de la ubicación → ownerUsername → enrich.
+  - followers  → "audiencia" de la cuenta semilla: comentaristas de sus posts recientes → enrich.
+                 (Instagram no deja listar followers sin login; los que comentan son audiencia
+                  engaged real del nicho, la mejor aproximación con el actor free.)
 
 Sin APIFY_TOKEN → MODO MOCK (perfiles de ejemplo deterministas) para dev sin gastar crédito.
 """
@@ -21,6 +23,7 @@ from ..config import settings
 logger = logging.getLogger(__name__)
 
 _TIMEOUT = httpx.Timeout(300.0, connect=15.0)
+_POSTS_AUDIENCIA = 8   # posts de la semilla a escanear para sacar comentaristas
 
 
 def _run(inp: dict[str, Any]) -> list[dict[str, Any]]:
@@ -36,20 +39,20 @@ def _run(inp: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _enrich(usernames: list[str], limite: int) -> list[dict[str, Any]]:
     """Trae el perfil COMPLETO (bio, followers, business…) de una lista de usuarios."""
-    usernames = usernames[:limite]
+    usernames = [u for u in usernames if u][:limite]
     if not usernames:
         return []
     urls = [f"https://www.instagram.com/{u}/" for u in usernames]
     out: list[dict[str, Any]] = []
     for i in range(0, len(urls), 50):
         out += _run({"directUrls": urls[i:i + 50], "resultsType": "details"})
-    return out
+    # Filtrar items de error (perfiles privados/inexistentes vienen con 'error').
+    return [p for p in out if not p.get("error")]
 
 
-def _owners(posts: list[dict[str, Any]], limite: int) -> list[str]:
-    """Usernames únicos dueños de una lista de posts (preserva orden)."""
-    vistos = dict.fromkeys(p.get("ownerUsername") for p in posts if p.get("ownerUsername"))
-    return list(vistos)[:limite]
+def _unicos(valores) -> list[str]:
+    """Únicos preservando orden, sin vacíos."""
+    return [v for v in dict.fromkeys(x for x in valores if x)]
 
 
 def buscar(angulo: str, query: str, filtros: dict) -> list[dict[str, Any]]:
@@ -68,29 +71,57 @@ def buscar(angulo: str, query: str, filtros: dict) -> list[dict[str, Any]]:
         if angulo == "hashtag":
             posts = _run({"directUrls": [f"https://www.instagram.com/explore/tags/{q}/"],
                           "resultsType": "posts", "resultsLimit": limite})
-            return _enrich(_owners(posts, limite), limite)
+            owners = _unicos(p.get("ownerUsername") for p in posts)
+            return _enrich(owners, limite)
 
         if angulo == "ubicacion":
-            # Buscar el lugar y traer posts de su página; de ahí, los dueños.
-            posts = _run({"search": q, "searchType": "place", "resultsType": "posts",
-                          "resultsLimit": limite, "searchLimit": 1})
-            owners = _owners(posts, limite)
-            if owners:
-                return _enrich(owners, limite)
-            # Fallback: búsqueda de usuarios con el término de ubicación.
-            return _run({"search": q, "searchType": "user", "resultsType": "details",
-                         "resultsLimit": limite, "searchLimit": limite})
+            return _buscar_ubicacion(q, limite)
 
         if angulo == "followers":
-            # El actor free no lista followers de forma fiable → traemos el perfil de la semilla.
-            logger.info("Ángulo 'followers': el actor free trae solo el perfil semilla @%s.", q)
-            return _run({"directUrls": [f"https://www.instagram.com/{q}/"], "resultsType": "details"})
+            return _buscar_audiencia(q, limite)
 
         return _run({"search": q, "searchType": "user", "resultsType": "details", "resultsLimit": limite})
 
     except httpx.HTTPError as e:
         logger.error("Apify falló (%s %s): %s", angulo, query, e)
         raise RuntimeError(f"Error consultando Apify: {e}") from e
+
+
+def _buscar_ubicacion(q: str, limite: int) -> list[dict[str, Any]]:
+    """place search → URL de la ubicación → posts → dueños → perfil completo."""
+    lugares = _run({"search": q, "searchType": "place", "resultsType": "details", "searchLimit": 3})
+    for lugar in lugares:
+        lid, slug = lugar.get("location_id"), lugar.get("slug")
+        if not lid:
+            continue
+        loc_url = f"https://www.instagram.com/explore/locations/{lid}/{slug or 'x'}/"
+        posts = _run({"directUrls": [loc_url], "resultsType": "posts", "resultsLimit": limite})
+        owners = _unicos(p.get("ownerUsername") for p in posts)
+        if owners:
+            return _enrich(owners, limite)
+    # Fallback: si no se encontró la ubicación, buscar usuarios con el término.
+    logger.info("Ubicación '%s' sin posts; fallback a búsqueda de usuarios.", q)
+    return _run({"search": q, "searchType": "user", "resultsType": "details",
+                 "resultsLimit": limite, "searchLimit": limite})
+
+
+def _buscar_audiencia(cuenta: str, limite: int) -> list[dict[str, Any]]:
+    """Comentaristas de los posts recientes de la cuenta semilla → perfil completo.
+
+    Aproxima "seguidores" por audiencia ENGAGED (los que comentan), que es lo mejor
+    que se puede segmentar sin login. Excluye a la propia cuenta semilla.
+    """
+    posts = _run({"directUrls": [f"https://www.instagram.com/{cuenta}/"],
+                  "resultsType": "posts", "resultsLimit": _POSTS_AUDIENCIA})
+    shortcodes = _unicos(p.get("shortCode") for p in posts)
+    if not shortcodes:
+        logger.info("Audiencia @%s: la cuenta no tiene posts accesibles.", cuenta)
+        return []
+    post_urls = [f"https://www.instagram.com/p/{s}/" for s in shortcodes]
+    comentarios = _run({"directUrls": post_urls, "resultsType": "comments",
+                        "resultsLimit": max(limite * 3, 30)})
+    commenters = [u for u in _unicos(c.get("ownerUsername") for c in comentarios) if u.lower() != cuenta.lower()]
+    return _enrich(commenters, limite)
 
 
 # ── Modo mock (dev sin token) ────────────────────────────────────────────────
